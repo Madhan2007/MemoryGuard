@@ -4,7 +4,12 @@
 
 ## Purpose
 
-Create realistic synthetic business data, ground truth annotations, evaluation harness, and metrics for validating MemoryGuard behavior.
+Create realistic synthetic business data, ground truth annotations, evaluation harness, and metrics for validating MemoryGuard behavior. Member 3 must now prove:
+
+1. **Memory correctness** — memories are handled correctly
+2. **Memory retrieval** — relevant memories are recalled
+3. **Memory safety** — unsupported memories are rejected
+4. **Learning from verified history** — verified memory improves future assistance
 
 ## Owner
 
@@ -13,11 +18,12 @@ Create realistic synthetic business data, ground truth annotations, evaluation h
 ## Responsibilities
 
 - 5 business scenarios (ACME, GLOBEX, NORTHWIND, INITECH, UMBRELLA)
-- Ground truth annotations
+- Ground truth annotations (including outcome expectations)
 - Evaluation harness (`eval_harness.py`)
 - Test cases for all MemoryGuard features
+- Learning evaluation (with vs without verified memory)
 - Metrics computation and reporting
-- Ablation studies
+- Ablation studies (memory on/off + outcome on/off)
 - Regression testing
 
 ## Files Owned
@@ -108,8 +114,10 @@ pytest tests/ -v
 
 - [ ] 5 scenarios with complete ground truth
 - [ ] Evaluation harness runs all scenarios
-- [ ] All 9 metrics computed and reported
+- [ ] All metrics computed and reported (including learning metrics)
+- [ ] Learning evaluation: with memory vs without
 - [ ] Ablation study executed
+- [ ] Outcome memory tests pass
 - [ ] Regression test suite in CI
 - [ ] Charts generated for presentation
 

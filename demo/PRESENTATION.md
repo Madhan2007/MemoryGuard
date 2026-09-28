@@ -6,7 +6,8 @@
 
 ### Slide 1: Title (30s)
 **MemoryGuard**
-"Verify what an AI agent should remember — before it remembers it."
+"Verified Memory for Deal Intelligence Agents"
+"A Deal Intelligence Agent that learns from verified long-term memory."
 HackWithHyderabad 3.0 | Team [Name]
 
 ### Slide 2: The Problem (1 min)
@@ -16,10 +17,11 @@ HackWithHyderabad 3.0 | Team [Name]
 - **Real pain**: "I thought they needed SOC2, but they were just evaluating it."
 
 ### Slide 3: Our Solution (1 min)
-**Agent + Hindsight + MemoryGuard**
+**Deal Intelligence Agent + Hindsight + MemoryGuard + Verified Learning**
 - Hindsight: Persistent memory (recall, deduplication, banks)
-- MemoryGuard: Governance layer (admission, merge, contamination, provenance)
-- Flow: Recall → Context → Generate → Candidate → **Govern** → Persist
+- MemoryGuard: Governance layer (admission, merge, contamination, provenance, outcome validation)
+- Outcome Memory: Evidence about what worked
+- Flow: Recall → Context → Generate → Candidate → **Govern** → Persist → **Outcome** → **Learn**
 
 ### Slide 4: Architecture (1 min)
 [ASCII diagram from ARCHITECTURE.md]
@@ -49,29 +51,39 @@ HackWithHyderabad 3.0 | Team [Name]
 - **Combined read**: Query-time merge
 - **Conflicts**: Detected, flagged, not auto-resolved
 
-### Slide 8: Evaluation (1 min)
-5 scenarios, 9 metrics:
-- ACME: Merge consolidation
+### Slide 8: Evaluation + Learning (1 min)
+5 scenarios, learning evaluation:
+- ACME: Merge consolidation + outcome recall
 - GLOBEX: Scope isolation
-- NORTHWIND: Contamination rejection
+- NORTHWIND: Contamination rejection (prevents bad learning)
 - INITECH: Conflict resolution
 - UMBRELLA: Freshness/decay
+- Learning evaluation: no memory vs memory vs memory + outcomes
 - Ablation: Full vs no-guard vs stateless
 - **All metrics TARGET until MEASURED**
 
+### Hackathon Alignment
+| Criterion (Weight) | How MemoryGuard Addresses It |
+|---------------------|-------------------------------|
+| **Innovation (30%)** | Verified memory governance + learning loop |
+| **Hindsight Memory (25%)** | Persistent deal memory and recall |
+| **Technical Implementation (20%)** | Agent + MemoryGuard + Hindsight + evaluation |
+| **User Experience (15%)** | Sales workflow with visible memory decisions |
+| **Real-world Impact (10%)** | Faster preparation and context-aware assistance |
+
 ### Slide 9: Demo (1.5 min)
 [Live 60-second demo]
-- Preference remembered
-- Duplicate merged
+- Past context recalled
+- Outcome memory shown
 - Hallucination rejected
-- Provenance shown
-- Personalized response
+- Bad learning prevented
+- Personalized, evidence-grounded recommendation
 
 ### Slide 10: Future Work & Impact (1 min)
 - LoRA verifier, RL feedback, CRM integration
 - Enterprise: multi-modal, auth, compliance
-- **Impact**: Reps never lose context, never act on hallucinations
-- "Memory that earns trust"
+- **Impact**: Reps never lose context, never learn from hallucinations
+- "MemoryGuard verifies what becomes trusted memory, and Hindsight lets the agent use that verified history to improve future deal assistance."
 
 ### Slide 11: Thank You / Q&A
 Contact: [info]

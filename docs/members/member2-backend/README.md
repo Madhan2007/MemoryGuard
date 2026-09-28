@@ -18,9 +18,36 @@ Integrate Hindsight persistent memory, LLM providers, and build the agent harnes
 - Agent harness (`agent_harness.py`)
 - Session management (`session.py`)
 - Structured logging (`logger.py`)
+- Outcome capture pipeline
 - Environment configuration
 - Integration testing
 - Error handling & retry logic
+
+### Outcome Capture Pipeline
+
+The backend supports the full learning flow:
+
+```
+run_turn()
+    ↓
+recall()                  ← Hindsight retrieval (project + common)
+    ↓
+agent_response()          ← Main LLM generates response
+    ↓
+candidate_memory()        ← Extract memory candidates
+    ↓
+memoryguard.verify()      ← Governance decision
+    ↓
+persist()                 ← Hindsight retain
+    ↓
+optional outcome capture  ← Record what happened
+    ↓
+outcome verification      ← MemoryGuard validates outcome claim
+    ↓
+persist verified outcome  ← Hindsight retain (if supported)
+```
+
+> **Important**: The backend does NOT decide policy. Member 2 executes MemoryGuard’s decision.
 
 ## Files Owned
 

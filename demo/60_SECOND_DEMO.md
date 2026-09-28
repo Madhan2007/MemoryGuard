@@ -2,62 +2,62 @@
 
 ## Status: PLANNED
 
+## Central Story
+
+> "Watch the agent remember, verify, learn, and improve."
+
 ## Timing Map
 
 ```
 0-8s    ████████ PROBLEM
-8-20s   ████████████ RETAIN (Preference)
-20-32s  ████████████ MERGE (Duplicate)
-32-47s  ████████████████ REJECT (Contamination - HERO)
-47-55s  ████████ PROVENANCE
-55-60s  ████ VALUE PROOF
+8-18s   ██████████ RECALL PAST CONTEXT
+18-30s  ████████████ OUTCOME MEMORY
+30-42s  ████████████ REJECT (Contamination - HERO)
+42-52s  ██████████ VERIFIED LEARNING
+52-60s  ████████ PERSONALIZED RECOMMENDATION
 ```
 
 ## Second-by-Second
 
 ### 0-8s: Problem Statement
-**Visual**: Empty MemoryGuard app, sidebar shows "Acme Corp"
-**Audio**: "Sales reps manage 10+ deals over months. They lose critical context. AI agents either forget everything or worse—remember things customers never said."
+**Visual**: Sales rep dashboard, Acme Corp selected
+**Audio**: "Sales reps manage 10+ deals over months. They need an agent that remembers, verifies, and learns. MemoryGuard makes this safe."
 
-### 8-20s: Preference Remembered (RETAIN)
-**Action**: Type/paste `"We prefer email for deal communication."` → Send
-**Visual**: 
-- Green "RETAIN" badge flashes in decision panel
-- Memory card appears in browser: 📧 "Customer prefers email communication" [PROJECT] 92%
-**Audio**: "Watch: MemoryGuard evaluates this candidate. It's useful, grounded, deal-relevant. RETAIN. Stored in Hindsight with full provenance."
-
-### 20-32s: Duplicate Merged (MERGE)
-**Action**: Type/paste `"I still prefer email for updates."` → Send
+### 8-18s: Recall Past Deal Context
+**Action**: Sales rep asks for help preparing for customer conversation
 **Visual**:
-- Blue "MERGE" badge flashes
-- Same memory card updates: frequency 1→2, evidence 1→2
-- Decision panel: "Semantic duplicate: both indicate email preference"
-**Audio**: "Same preference, different words. MemoryGuard detects semantic similarity. MERGE. Frequency now 2. Both source quotes preserved. No duplicate clutter."
+- Agent recalls past preferences: 📧 "Customer prefers email communication" [PROJECT] 92%
+- Agent recalls past objection: "Pricing objection raised in previous call"
+- Agent recalls past interaction context
+**Audio**: "The agent recalls verified deal context through Hindsight — preferences, objections, prior interactions."
 
-### 32-47s: Hallucination Rejected (REJECT) — **HERO MOMENT**
+### 18-30s: Show Outcome Memory
+**Visual**:
+- Outcome card: "Pricing objection → ROI explanation → positive response" ✅
+- Evidence trail: source conversation, turn, outcome timestamp
+**Audio**: "Outcome memory: last time pricing came up, an ROI-focused explanation received a positive response. This is evidence for future recommendations."
+
+### 30-42s: Hallucination Rejected (REJECT) — **HERO MOMENT**
 **Action**: Type/paste `"We are evaluating SOC2 compliance."` → Send
 **Visual**:
 - LLM candidate extracted: "SOC2 is mandatory before purchase."
 - Red "REJECT" badge flashes
 - Decision panel: "Candidate memory not supported by source statement"
 - Source quote shown: "We are evaluating SOC2 compliance."
-**Audio**: "Customer says they're *evaluating* SOC2. LLM hallucinates 'mandatory.' MemoryGuard's verifier checks: does source support candidate? NOT_SUPPORTED. REJECT. This is contamination detection—our hero feature."
+**Audio**: "Customer says they're *evaluating* SOC2. LLM hallucinates 'mandatory.' MemoryGuard's verifier checks: does source support candidate? NOT_SUPPORTED. REJECT. This prevents bad learning."
 
-### 47-55s: Provenance Visualization
-**Action**: Click email preference memory card
+### 42-52s: Verified Memory Prevents Bad Learning
 **Visual**:
-- Decision panel expands
-- Provenance chain: Turn 1 → Turn 2 → Turn 3
-- Decision steps: Admission ✓ → Contamination ✓ → Consolidation (MERGE) → Conflict ✓ → Scope (PROJECT)
-- Source quotes expandable
-**Audio**: "Every memory traces to source. Turn 1, Turn 5, Turn 12. Full decision chain: admission, contamination, consolidation, conflict check, scope assignment. Audit ID for compliance."
+- Show what would happen without MemoryGuard: "SOC2 is mandatory" enters memory, corrupts future recommendations
+- Show what MemoryGuard does: REJECT, memory stays clean
+**Audio**: "Without governance, the agent would learn from unsupported information. MemoryGuard prevents unsupported candidate memories from becoming trusted context."
 
-### 55-60s: Personalized Response Proves Value
-**Action**: Type/paste `"What should I send next?"` → Send
+### 52-60s: Personalized Recommendation Based on Verified History
+**Action**: Ask agent for recommendation
 **Visual**:
-- Agent response: "I'll email you the proposal with SOC2 evaluation details."
-- Memory browser shows context used
-**Audio**: "Agent recalls verified preferences and deal context. Response is personalized: 'I'll email you...' Verified memory → contextual response. This is the value."
+- Agent response: "Based on your previous positive response to ROI analysis, here's the updated ROI for this quarter. I'll email it to you as preferred."
+- Memory browser highlights: Email preference + ROI outcome + SOC2 evaluation (not mandatory)
+**Audio**: "The agent uses verified history — preferences, outcomes, and evidence — to provide a personalized recommendation. MemoryGuard doesn't just help the agent remember. It helps the agent learn from what is actually supported."
 
 ---
 
@@ -65,30 +65,38 @@
 
 | Moment | Badge Color | Animation | Sound |
 |--------|-------------|-----------|-------|
-| RETAIN | Green | Pulse | ✓ chime |
-| MERGE | Blue | Frequency counter increments | 🔄 whoosh |
+| RECALL | Blue | Fade in | 🔍 chime |
+| OUTCOME | Green | Pulse | ✓ chime |
 | REJECT | Red | Shake | ✗ buzz |
-| Provenance | - | Smooth expand | - |
+| LEARNING | Purple | Glow | 🎯 chime |
 
 ## Demo Messages (Exact)
 
 ```
-1. "We prefer email for deal communication."
-2. "I still prefer email for updates."
-3. "We are evaluating SOC2 compliance."
-4. "What should I send next?"
+1. "Help me prepare for my call with Acme Corp today."
+2. "We are evaluating SOC2 compliance."
+3. "What approach should I take on the pricing discussion?"
 ```
+
+## Ending Line
+
+> "MemoryGuard doesn't just help the agent remember. It helps the agent learn from what is actually supported."
+
+## Central Demo Message
+
+> "Memory is useful only when the agent can trust what it remembers."
+>
+> "MemoryGuard verifies what becomes trusted memory, and Hindsight lets the agent use that verified history to improve future deal assistance."
 
 ## Backup Screenshots Needed
 
 1. `01_empty_state.png` — App start
-2. `02_retain_badge.png` — Green RETAIN
-3. `03_memory_card.png` — Email preference card
-4. `04_merge_badge.png` — Blue MERGE, freq=2
-5. `05_candidate_hallucination.png` — "SOC2 is mandatory"
-6. `06_reject_badge.png` — Red REJECT with reason
-7. `07_provenance_chain.png` — Expanded chain
-8. `08_personalized_response.png` — Agent mentions email
+2. `02_recall_context.png` — Past deal context recalled
+3. `03_outcome_card.png` — Outcome memory displayed
+4. `04_candidate_hallucination.png` — "SOC2 is mandatory"
+5. `05_reject_badge.png` — Red REJECT with reason
+6. `06_learning_prevented.png` — Bad learning prevented
+7. `07_personalized_response.png` — Evidence-grounded recommendation
 
 ---
 

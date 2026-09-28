@@ -43,13 +43,37 @@
 
 ### Optional Fields
 
+| Field | Type | Description | MVP Status |
+|-------|------|-------------|------------|
+| `tags` | array[string] | Compliance tags (SOC2, GDPR, etc.) | Optional |
+| `stakeholder` | string | Associated stakeholder role | Optional |
+| `deal_stage` | enum | Stage when memory created | Optional |
+| `promotion_history` | array | Promotion events (common↔project) | Future |
+| `decay_score` | float | Current relevance after decay | Optional |
+
+### Outcome Memory Fields
+
+> **Important**: Outcome data is evidence for future assistance and NOT automatically proof of causality. "Customer responded positively after ROI explanation" ≠ "ROI caused the positive response."
+
+#### MVP Required Outcome Fields
+
 | Field | Type | Description |
 |-------|------|-------------|
-| `tags` | array[string] | Compliance tags (SOC2, GDPR, etc.) |
-| `stakeholder` | string | Associated stakeholder role |
-| `deal_stage` | enum | Stage when memory created |
-| `promotion_history` | array | Promotion events (common↔project) |
-| `decay_score` | float | Current relevance after decay |
+| `outcome_type` | enum | positive, negative, neutral, mixed |
+| `outcome_text` | string | Description of what happened after recommendation/approach |
+| `outcome_evidence` | string | Source evidence supporting the outcome claim |
+| `outcome_timestamp` | datetime | When the outcome was observed |
+
+#### Future / Optional Outcome Fields
+
+| Field | Type | Description | MVP Status |
+|-------|------|-------------|------------|
+| `outcome` | string | Summary of the outcome | Future |
+| `outcome_source` | string | Where the outcome was observed | Future |
+| `learning_signal` | enum | confirms, contradicts, neutral | Future |
+| `feedback_source` | enum | customer, rep, system, inferred | Future |
+| `observed_effect` | string | What was directly observed | Future |
+| `causal_confidence` | float | Confidence that approach caused outcome (0.0-1.0) | Future |
 
 ---
 
@@ -158,8 +182,11 @@ class VerificationContext:
 | Contamination Rejection Rate | % | TARGET: >90% |
 | Ablation Improvement | % | TARGET: >15% vs no-MemoryGuard |
 | Grounded Claim Count | count | TARGET: 100% of retained |
+| Outcome Recall Rate | % | TARGET |
+| Learning Recall Rate | % | TARGET |
+| Personalization Improvement | qualitative | TARGET |
 
-> **Note**: All metrics labeled TARGET until measured.
+> **Note**: All metrics labeled TARGET until measured. Outcome and learning metrics are to be validated once the outcome capture pipeline is implemented.
 
 ---
 

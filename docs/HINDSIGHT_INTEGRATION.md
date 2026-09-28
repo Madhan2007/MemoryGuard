@@ -6,7 +6,7 @@
 
 **Hackathon requirement**: "MANDATORY TECHNOLOGY: Hindsight"
 
-Hindsight provides the **persistent memory layer** that MemoryGuard governs. This is not optional architecture — it's a hackathon constraint.
+Hindsight is the persistent memory backbone. Memory is stored and recalled across interactions. Hindsight supports project/common memory separation according to the existing architecture. MemoryGuard sits above the memory layer as policy/governance. Outcome memories can also be retained when properly supported.
 
 ## What Hindsight Does
 
@@ -36,9 +36,11 @@ Hindsight provides the **persistent memory layer** that MemoryGuard governs. Thi
 
 ## Critical Distinction
 
-> **MemoryGuard does NOT replace Hindsight's deduplication.**
+> **MemoryGuard does NOT replace Hindsight.**
 >
-> Hindsight already provides deduplication/consolidation. MemoryGuard's MERGE decision is a **policy-level consolidation decision** that tells Hindsight *what* to merge and *why*, with full provenance preservation.
+> Hindsight already provides deduplication/consolidation. MemoryGuard's MERGE decision is a **policy-level consolidation decision** that tells Hindsight *what* to merge and *why*, with full provenance preservation. MemoryGuard adds an explicit governance layer for evidence-grounded memory decisions.
+
+> Hindsight does NOT perform the MemoryGuard governance logic. MemoryGuard sits above Hindsight as the policy and verification layer.
 
 ## Memory Bank Strategy
 
@@ -273,6 +275,22 @@ class HindsightConfig:
     retry_backoff: 2.0
     circuit_breaker_threshold: 5
 ```
+
+---
+
+## Outcome Memory Support
+
+Outcome memories are persisted through Hindsight using the same bank strategy:
+- **Project bank**: Deal-specific outcomes (e.g., "ROI explanation received positive response for Acme")
+- **Common bank**: Rep-level outcome patterns (when promoted from 3+ deals)
+
+Outcome memories are stored with the same metadata structure, with additional outcome fields:
+- `outcome_type`: positive, negative, neutral, mixed
+- `outcome_text`: What happened
+- `outcome_evidence`: Source evidence supporting the outcome
+- `outcome_timestamp`: When observed
+
+> **Important**: Hindsight stores outcome memories as data. MemoryGuard validates that outcome claims are evidence-grounded before they are persisted.
 
 ---
 

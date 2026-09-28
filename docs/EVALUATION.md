@@ -4,7 +4,11 @@
 
 ## Overview
 
-Member 3 owns evaluation across 5 business scenarios with defined metrics.
+Member 3 owns evaluation across 5 business scenarios with defined metrics. The evaluation must now test two things:
+
+**A. Is memory handled correctly?** (existing)
+
+**B. Does verified memory improve future assistance?** (learning evaluation)
 
 ## Five Business Scenarios
 
@@ -118,6 +122,9 @@ Turn 25 (Day 75): "Actually, just email is fine."
 | Contamination Rejection Rate | % of unsupported candidates rejected | TARGET: >90% | Hallucination injection tests |
 | Ablation Improvement | % improvement vs no-MemoryGuard baseline | TARGET: >15% | A/B on agent response quality |
 | Grounded Claim Count | % of retained memories with source quote | TARGET: 100% | Audit trail verification |
+| Outcome Recall Rate | % of relevant outcomes recalled for similar situations | TARGET | Outcome retrieval tests |
+| Learning Recall Rate | % of relevant historical evidence used in recommendations | TARGET | Learning recall tests |
+| Personalization Improvement | Quality improvement with memory vs without | TARGET | Human eval comparison |
 
 > **Important**: All metrics labeled **TARGET** until actually measured. Change to **MEASURED** only after evaluation runs.
 
@@ -240,3 +247,55 @@ evaluation_results/
 ---
 
 **Status: PLANNED** — Implementation in `src/harness/eval_harness.py` and `src/data/scenarios/`.
+
+---
+
+## Learning Evaluation
+
+### Purpose
+
+Test whether verified memory actually improves future deal assistance. This is central to the hackathon theme: "AI Agents That Learn Using Hindsight."
+
+### Three-Condition Comparison
+
+| Condition | Description | Expected |
+|-----------|-------------|----------|
+| **Test 1: No Memory** | Stateless agent, no history | Generic responses |
+| **Test 2: Verified Memory** | Agent with verified interaction memories | Personalized responses using deal context |
+| **Test 3: Verified Memory + Outcomes** | Agent with memories AND outcome history | Evidence-informed recommendations |
+
+### Learning Test Scenarios
+
+#### ACME — Outcome Recall
+- **Setup**: Verified memory of pricing objection + ROI approach + positive outcome
+- **Test**: Similar pricing objection arises later
+- **Expected**: Agent references previous positive outcome
+- **Metric**: Personalization Improvement
+
+#### NORTHWIND — Preventing Bad Learning
+- **Setup**: "We are evaluating SOC2" → LLM hallucinates "SOC2 is mandatory"
+- **Expected**: REJECT — prevents unsupported learning
+- **Impact**: Future interactions not corrupted
+
+#### Cross-Deal — No Overgeneralization
+- **Setup**: ROI approach worked in Acme
+- **Test**: Globex deal has similar objection
+- **Expected**: Acme outcome does NOT leak to Globex
+
+### Learning-Specific Metrics
+
+| Metric | Definition | Target |
+|--------|------------|--------|
+| Outcome Recall Rate | % of relevant outcomes recalled when needed | TARGET |
+| Learning Recall Rate | % of relevant historical evidence used | TARGET |
+| Personalization Improvement | Quality improvement with memory vs without | TARGET |
+
+### Ablation Definition
+
+**Ablation**: Same interaction with memory disabled versus verified memory enabled.
+
+**Learning test**: Same scenario before and after relevant verified historical evidence is available.
+
+> **Important**: Do not invent scores. All metrics remain TARGET until measured.
+
+See also: `docs/LEARNING_EVALUATION.md` for full learning evaluation design.

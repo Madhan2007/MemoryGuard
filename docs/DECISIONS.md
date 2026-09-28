@@ -43,7 +43,7 @@ Each decision follows:
 **Context**: Hindsight already provides deduplication. Initial design had MemoryGuard doing its own merge.
 
 **Alternatives**:
-- MemoryGuard replaces Hindsight deduplication
+- ~~MemoryGuard replaces Hindsight deduplication~~ (rejected: MemoryGuard governs, not replaces)
 - MemoryGuard pre-filters, Hindsight does rest
 - Two independent memory systems
 

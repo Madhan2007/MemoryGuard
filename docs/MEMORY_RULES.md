@@ -4,7 +4,7 @@
 
 ## Overview
 
-34 rules governing MemoryGuard behavior. Grouped by category.
+34 rules governing MemoryGuard behavior, grouped by category. These rules protect both factual memory correctness and the quality of the learning loop. By preventing unsupported claims from entering trusted memory, MemoryGuard ensures that future recommendations are grounded in verified evidence.
 
 Each rule includes:
 - **Rule Number** — Unique identifier
@@ -269,3 +269,59 @@ Each rule includes:
 ---
 
 **Status: PLANNED** — Rules defined. Implementation in `src/memory/rules.py`.
+
+---
+
+## Explanatory Notes: Outcome and Learning
+
+The following notes apply across the 34 rules and explain how they relate to outcome evidence, learning, and causal claims.
+
+### Outcome Evidence
+
+Outcome memories (e.g., "ROI explanation received a positive response") are subject to all applicable rules above, particularly:
+- **R1 (Grounding Required)**: Outcome claims must be grounded in source evidence
+- **R3 (No Hallucination)**: Agent cannot infer outcomes not evidenced in the interaction
+- **R34 (Source Support)**: Outcome memory must be entailed by observable evidence
+
+### Causal Claims
+
+MemoryGuard must NOT allow unsupported causal claims to enter trusted memory:
+
+| Source | Candidate | Decision | Reason |
+|--------|-----------|----------|--------|
+| "Customer asked about ROI" | "ROI strategy won the deal" | REJECT | Source does not prove causality |
+| "Customer responded positively after ROI explanation" | "ROI explanation received positive response" | RETAIN | Observable outcome supported by evidence |
+| "Deal closed after pricing discussion" | "Pricing discussion caused the deal to close" | REJECT | Correlation does not prove causation |
+
+### Repetition and Truth
+
+**Important principle**: Repetition increases evidence about recurrence, but repetition alone does not prove truth or causality.
+
+- A customer mentioning email preference 3 times is strong evidence of a preference (recurrence)
+- A positive outcome happening 2 times after ROI discussion is evidence of a pattern (recurrence)
+- Neither proves that ROI *caused* the outcome (causality requires additional evidence)
+
+### Outcome Memory Distinctions
+
+Outcome memory should distinguish:
+
+| Type | Definition | Example |
+|------|-----------|----------|
+| **OBSERVED** | What happened | "Customer asked for ROI breakdown after pricing discussion" |
+| **INFERRED** | What the agent thinks may have caused it | "ROI approach caused the customer to approve" |
+| **VERIFIED** | What the available evidence actually supports | "ROI explanation was followed by a positive customer response" |
+
+Only OBSERVED and VERIFIED claims should enter trusted memory. INFERRED claims require supporting evidence to be admitted.
+
+### Confidence and Source Support
+
+- Outcome memories with single evidence should have lower confidence scores (Rule R4)
+- Multiple independent observations of the same outcome increase confidence
+- Source support must be specific, not generic
+
+### Scope
+
+Outcome memories follow the same scope rules (R15-R19):
+- Deal-specific outcomes stay in project memory bank
+- General rep-level patterns (across 3+ deals) may be promoted to common memory (R24)
+- No cross-deal outcome leakage

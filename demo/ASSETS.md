@@ -20,31 +20,35 @@
 | `10_conflict_linked.png` | Two memories linked bidirectionally | Day 3 |
 | `11_globex_memory.png` | Gong competitor in Globex project | Day 3 |
 | `12_acme_search_empty.png` | "Gong" search returns 0 in Acme | Day 3 |
-| `13_metrics_dashboard.png` | Precision 94%, contamination 100% | Day 3 |
-| `14_architecture_diagram.png` | Clean architecture diagram | Day 3 |
-| `15_contamination_flow.png` | Source → Candidate → Verifier → REJECT | Day 3 |
+| `13_metrics_dashboard.png` | Precision 94%, contamination 100%, learning improvement +35% | Day 3 |
+| `14_architecture_diagram.png` | Clean architecture diagram with Hindsight & MemoryGuard | Day 3 |
+| `15_contamination_flow.png` | Source → Candidate → Verifier → REJECT (Bad Learning Blocked) | Day 3 |
 | `16_merge_visualization.png` | 3 turns → 1 memory (freq=3) | Day 3 |
+| `17_outcome_memory_card.png` | Objection → ROI breakdown → Win (Outcome evidence) | Day 3 |
+| `18_personalized_recommendation.png` | Learned tactic + Email preference recommendation | Day 3 |
 
 ### Recordings (MP4, 1080p, 30fps)
 
 | File | Description | Duration |
 |------|-------------|----------|
-| `demo_60s.mp4` | Full 60-second demo run | 60s |
-| `demo_90s.mp4` | Full 90-second demo run | 90s |
-| `contamination_hero.mp4` | Just the REJECT moment | 15s |
-| `provenance_demo.mp4` | Click card → provenance chain | 20s |
+| `demo_60s.mp4` | Full 60-second demo run (learning story) | 60s |
+| `demo_90s.mp4` | Full 90-second demo run (extended scenarios) | 90s |
+| `contamination_hero.mp4` | Just the REJECT / bad learning blocked moment | 15s |
+| `provenance_demo.mp4` | Click card → provenance chain & evidence | 20s |
+| `learning_loop_demo.mp4` | Outcome recall → adaptive recommendation | 25s |
 
 ### Diagrams (SVG/PNG)
 
 | File | Description |
 |------|-------------|
-| `architecture.svg` | System architecture |
-| `memory_banks.svg` | Project + Common + Combined read |
+| `architecture.svg` | System architecture (Hindsight backbone + MemoryGuard) |
+| `memory_banks.svg` | Project + Common + Outcome Memory banks |
+| `learning_loop.svg` | Interaction → Outcome → Verification → Future Recommendation |
 | `decision_flow.svg` | Admission → Contamination → Merge → Conflict → Scope |
 | `contamination_flow.svg` | Source → Candidate → Verifier → Decision |
 | `merge_visualization.svg` | Turn 1, 5, 12 → Consolidated memory |
 | `scope_isolation.svg` | Project bank ↔ Common bank isolation |
-| `ablation_chart.svg` | Full vs No Guard vs Stateless precision |
+| `ablation_chart.svg` | Full vs No Guard vs Stateless precision and utility |
 
 ### Presentation Assets
 

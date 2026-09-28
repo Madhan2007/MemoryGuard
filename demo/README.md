@@ -25,8 +25,8 @@ Demo scripts, assets, and presentation materials for hackathon judging.
 
 ## Demo Scenarios
 
-Primary: **ACME** — Communication preference consolidation + contamination detection
-Backup: **NORTHWIND** — Pure contamination hero moment
+Primary: **ACME** — Communication preference consolidation, outcome memory recall, and bad learning prevention
+Backup: **NORTHWIND** — Pure contamination hero moment (blocking false security requirements)
 Extended: **INITECH** — Conflict resolution, **GLOBEX** — Scope isolation
 
 ## Run Commands
@@ -54,11 +54,12 @@ python scripts/run_demo.py --scenario acme
 
 ## Hero Moments (Must Work)
 
-1. **RETAIN** — Green badge, memory appears
+1. **RETAIN** — Green badge, memory appears in persistent bank
 2. **MERGE** — Blue badge, frequency++, provenance++
-3. **REJECT (Contamination)** — Red badge, "Not supported by source"
-4. **Provenance** — Expandable chain: Source → Evidence → Decision
-5. **Personalized Response** — Agent uses verified memory
+3. **OUTCOME MEMORY** — Verified learning card linking prior objection to successful tactic
+4. **REJECT (Contamination)** — Red badge, "Not supported by source", bad learning blocked
+5. **Provenance** — Expandable chain: Source → Evidence → Decision
+6. **Personalized Response** — Agent uses verified memory + learned outcome evidence
 
 ---
 

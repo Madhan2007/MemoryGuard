@@ -5,6 +5,73 @@
 ## High-Level Architecture
 
 ```
+              SALES REPRESENTATIVE
+                      ↓
+                 DEAL AGENT
+                      ↓
+              HINDSIGHT RECALL
+                      ↓
+              VERIFIED CONTEXT
+                      ↓
+                 MAIN LLM
+                      ↓
+               RESPONSE
+                      ↓
+             CANDIDATE MEMORY
+                      ↓
+                MEMORYGUARD
+             ┌────────┼────────┐
+             ↓        ↓        ↓
+          RETAIN    MERGE    REJECT
+             ↓        ↓        ↓
+             └────────┼────────┘
+                      ↓
+                  HINDSIGHT
+                      ↓
+               PERSISTENT MEMORY
+                      ↓
+                FUTURE RECALL
+                      ↓
+            DEAL RECOMMENDATION
+                      ↓
+                OUTCOME
+                      ↓
+             OUTCOME MEMORY
+                      ↓
+             FUTURE LEARNING
+```
+
+## Component Explanations
+
+| Component | Owner | Description |
+|-----------|-------|-------------|
+| **Sales Representative** | User | The persona — sales rep preparing for or conducting deal conversations |
+| **Deal Agent** | Member 2 | The main agent harness that orchestrates the conversation loop |
+| **Hindsight Recall** | Member 2 | Retrieves relevant verified memories from project and common banks |
+| **Verified Context** | Member 2 | Context built from recalled memories + outcomes, injected into LLM prompt |
+| **Main LLM** | Member 2 | Generates response and extracts candidate memories |
+| **Response** | Member 2 | Personalized response to the user, informed by verified history |
+| **Candidate Memory** | Member 2 | Potential memories extracted from the interaction |
+| **MemoryGuard** | Member 1 | Governance layer — evaluates candidates through 34 rules |
+| **RETAIN / MERGE / REJECT** | Member 1 | Decision outcomes from MemoryGuard evaluation |
+| **Hindsight (Persist)** | Member 2 | Stores verified memories with full metadata |
+| **Persistent Memory** | Hindsight | Long-term storage and retrieval infrastructure |
+| **Future Recall** | Hindsight | Memories available for future interactions |
+| **Deal Recommendation** | Agent | Personalized recommendation using verified history |
+| **Outcome** | Member 2 | Captures what happened after a recommendation |
+| **Outcome Memory** | Member 1+2 | Verified outcome stored as evidence for future learning |
+| **Future Learning** | System | Verified outcomes inform future agent assistance |
+
+## Architecture Distinction
+
+- **Hindsight** = storage/retrieval infrastructure
+- **MemoryGuard** = governance layer
+- **Outcome Memory** = evidence about what worked
+- **Learning** = using verified history in future interactions
+
+## Detailed Architecture
+
+```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              USER (Sales Rep)                               │
 └─────────────────────────────────┬───────────────────────────────────────────┘
@@ -16,7 +83,7 @@
 │  │                        AGENT LOOP                                    │   │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────┐  │   │
 │  │  │ HINDSIGHT   │─▶│  CONTEXT    │─▶│  MAIN LLM   │─▶│ RESPONSE  │  │   │
-│  │  │  RECALL     │  │  BUILDER    │  │  (Groq)     │  │  TO USER  │  │   │
+│  │  │  RECALL     │  │  BUILDER    │  │             │  │  TO USER  │  │   │
 │  │  └─────────────┘  └─────────────┘  └─────────────┘  └───────────┘  │   │
 │  │        ▲                                                          │   │
 │  │        │                                                          │   │
@@ -25,9 +92,13 @@
 │  │  │  MEMORY   │  │  (Member 1) │  │             │                  │   │
 │  │  └───────────┘  └─────────────┘  └──────┬──────┘                  │   │
 │  │                                          │                         │   │
-│  └──────────────────────────────────────────┼─────────────────────────┘   │
-│                                             │                             │
-└─────────────────────────────────────────────┼─────────────────────────────┘
+│  │  ┌───────────────────────────────────────┘                         │   │
+│  │  │  ┌─────────────┐  ┌─────────────┐                              │   │
+│  │  └─▶│  OUTCOME    │─▶│  OUTCOME    │  ← Capture + verify outcome  │   │
+│  │     │  CAPTURE    │  │  MEMORY     │                              │   │
+│  │     └─────────────┘  └─────────────┘                              │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
                                               │
                                               ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -42,6 +113,7 @@
 │            │              DECISION ENGINE                      │         │
 │            │  Input: candidate_memory, source_text, context    │         │
 │            │  Output: MemoryDecision {decision, reason, ...}   │         │
+│            │  + Outcome evidence validation                    │         │
 │            └──────────────────────────────────────────────────┘         │
 └─────────────────────────────────────────────────────────────────────────────┘
                                               │
@@ -71,8 +143,9 @@
 |-----------|-------|------|
 | Agent Harness / Loop | Member 2 | `src/harness/agent_harness.py` |
 | Hindsight Client | Member 2 | `src/integrations/hindsight_client.py` |
-| Groq/LLM Client | Member 2 | `src/integrations/groq_client.py` |
+| LLM Client | Member 2 | `src/integrations/groq_client.py` |
 | Configuration | Member 2 | `src/integrations/config.py` |
+| Outcome Capture | Member 2 | `src/harness/outcome.py` |
 | MemoryGuard Core | Member 1 | `src/memory/memory_guard.py` |
 | Admission Policy | Member 1 | `src/memory/admission.py` |
 | Consolidation/Merge | Member 1 | `src/memory/consolidation.py` |
@@ -99,7 +172,7 @@ Agent Harness
     │
     ▼
 Combine results → deduplicate by content → rank by relevance/recency
-    │
+    │   (includes outcome memories when relevant)
     ▼
 Context Builder → inject into system prompt
 ```
@@ -108,7 +181,7 @@ Context Builder → inject into system prompt
 ```
 Main LLM (MAIN_MODEL)
     │
-    ├─▶ Response to user
+    ├─▶ Response to user (informed by verified history)
     ├─▶ Candidate memories (structured extraction)
     │
     ▼
@@ -141,12 +214,25 @@ if decision in [RETAIN, UPDATE, MERGE]:
     )
 ```
 
+### 5. Outcome Capture Phase (Optional per Turn)
+```
+if outcome_available:
+    candidate_outcome = extract_outcome(response, feedback)
+        │
+        ▼
+    MemoryGuard.verify(candidate_outcome, evidence, context)
+        │
+        ▼
+    if verified:
+        HindsightClient.retain(outcome_memory)
+```
+
 ## Memory Bank Strategy
 
 ### Project Memory Bank
 - **Scope**: Single deal/customer
 - **Shared**: Team members on the deal
-- **Contents**: Requirements, objections, competitors, stakeholders, deal stage, pricing
+- **Contents**: Requirements, objections, competitors, stakeholders, deal stage, pricing, outcomes
 - **Lifecycle**: Deal duration + archive
 - **Bank ID**: `memoryguard-project-{deal_id}`
 
@@ -169,7 +255,7 @@ if decision in [RETAIN, UPDATE, MERGE]:
      ├─▶ MAIN_MODEL, VERIFIER_MODEL
      ├─▶ HINDSIGHT_API_KEY, HINDSIGHT_BASE_URL
      ├─▶ HINDSIGHT_PROJECT_BANK, HINDSIGHT_COMMON_BANK
-     └─▶ GROQ_API_KEY
+     └─▶ LLM API Keys (configurable through environment variables)
 ```
 
 ## Error Handling Strategy
@@ -180,6 +266,7 @@ if decision in [RETAIN, UPDATE, MERGE]:
 | LLM Client | Retry with fallback model, structured output validation |
 | MemoryGuard | Deterministic fallback rules if verifier fails |
 | Agent Harness | Graceful degradation: proceed with empty context if recall fails |
+| Outcome Capture | Best-effort: agent continues if outcome capture fails |
 
 ## Observability
 
@@ -187,6 +274,7 @@ if decision in [RETAIN, UPDATE, MERGE]:
 - Decision audit trail (Member 1: provenance)
 - Evaluation metrics (Member 3: `src/harness/eval_harness.py`)
 - UI decision panel (Member 4: `src/ui/components/decision_panel.py`)
+- Outcome tracking (Member 2: outcome capture pipeline)
 
 ---
 

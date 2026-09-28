@@ -21,32 +21,32 @@ Shared — Member 4 leads, all members contribute.
 ## Required Deliverables
 
 ### Articles (2-3)
-1. **Technical Deep Dive**: "How MemoryGuard Adds Governance to Hindsight Memory"
+1. **Technical Deep Dive**: "How MemoryGuard and Hindsight Enable AI Agents That Learn Safely"
    - Author: Member 1 + Member 2
    - Audience: Engineers, AI practitioners
    - Length: 1500-2000 words
 
-2. **Business Case Study**: "Why Sales Teams Need Verified AI Memory"
+2. **Business Case Study**: "Deal Intelligence: Why Sales Agents Must Learn from Verified Outcomes"
    - Author: Member 3 + Member 4
    - Audience: Business leaders, sales ops
    - Length: 1000-1500 words
 
-3. **Evaluation Report**: "Measuring Memory Quality: Our 5-Scenario Framework"
+3. **Evaluation Report**: "Evaluating AI Agent Learning: Measuring Quality, Provenance, and Contamination"
    - Author: Member 3
    - Audience: ML engineers, researchers
    - Length: 1500-2000 words
 
 ### Social Media (5-10 posts)
 - Launch announcement (Day 3)
-- Hero feature highlights (contamination, merge, provenance)
+- Hero feature highlights (contamination prevention, outcome memory, provenance)
 - Team photo + tech stack
-- Evaluation results teaser
+- Evaluation results teaser (+35% learning improvement)
 - Judge feedback / results
 
 ### Videos (2-3)
-1. **60-Second Demo** (primary)
-2. **90-Second Demo** (extended)
-3. **Technical Explainer** (2-3 min): "How Contamination Detection Works"
+1. **60-Second Demo** (primary - learning story: recall → outcome → reject → verify → improve)
+2. **90-Second Demo** (extended - conflict resolution & multi-deal scope isolation)
+3. **Technical Explainer** (2-3 min): "How Verified Memory Powers Safe Agent Learning"
 
 ## Content Guidelines
 
@@ -58,7 +58,7 @@ Shared — Member 4 leads, all members contribute.
 
 ### Branding
 - Project name: **MemoryGuard**
-- Tagline: "Verify what an AI agent should remember — before it remembers it."
+- Tagline: "Verify what an AI agent should remember — before it learns from it."
 - Hashtags: #HackWithHyderabad #HWH3 #MemoryGuard #Hindsight #AIMemory
 
 ### Visual Style

@@ -27,12 +27,14 @@ MemoryGuard/
 │   ├── ARCHITECTURE.md
 │   ├── MEMORY_ARCHITECTURE.md
 │   ├── MEMORY_RULES.md
+│   ├── LEARNING_LOOP.md
 │   ├── PRODUCT_REQUIREMENTS.md
 │   ├── DATA_MODEL.md
 │   ├── API_CONTRACTS.md
 │   ├── HINDSIGHT_INTEGRATION.md
 │   ├── MODEL_CONFIGURATION.md
 │   ├── EVALUATION.md
+│   ├── LEARNING_EVALUATION.md
 │   ├── SECURITY.md
 │   ├── TEAM_WORKFLOW.md
 │   ├── GIT_WORKFLOW.md
