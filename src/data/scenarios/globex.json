@@ -1,0 +1,132 @@
+{
+  "scenario_id": "globex",
+  "customer": "Globex Corporation",
+  "deal_id": "deal-globex-001",
+  "rep_id": "rep-002",
+  "turns": [
+    {
+      "turn_id": 1,
+      "speaker": "customer",
+      "text": "We're evaluating Gong for conversation intelligence.",
+      "expected_memories": [
+        {
+          "text": "Customer evaluating Gong for conversation intelligence",
+          "decision": "RETAIN",
+          "scope": "project",
+          "memory_type": "competitor"
+        }
+      ],
+      "expected_rejections": []
+    },
+    {
+      "turn_id": 2,
+      "speaker": "customer",
+      "text": "Chorus is another option we're looking at.",
+      "expected_memories": [
+        {
+          "text": "Customer evaluating Chorus for conversation intelligence",
+          "decision": "RETAIN",
+          "scope": "project",
+          "memory_type": "competitor"
+        }
+      ],
+      "expected_rejections": []
+    },
+    {
+      "turn_id": 3,
+      "speaker": "customer",
+      "text": "We've also demoed Wingman but it's too expensive.",
+      "expected_memories": [
+        {
+          "text": "Customer demoed Wingman, found too expensive",
+          "decision": "RETAIN",
+          "scope": "project",
+          "memory_type": "competitor"
+        }
+      ],
+      "expected_rejections": []
+    },
+    {
+      "turn_id": 4,
+      "speaker": "rep",
+      "text": "Thanks for sharing that. I'll focus our demo on differentiation from Gong and Chorus.",
+      "expected_memories": [
+        {
+          "text": "Rep focuses differentiation on Gong and Chorus",
+          "decision": "RETAIN",
+          "scope": "common",
+          "memory_type": "pattern"
+        }
+      ],
+      "expected_rejections": []
+    }
+  ],
+  "ground_truth": {
+    "final_memories": [
+      {
+        "text": "Customer evaluating Gong for conversation intelligence",
+        "memory_type": "competitor",
+        "scope": "project",
+        "decision": "RETAIN",
+        "frequency": 1,
+        "evidence_count": 1,
+        "conflicts": []
+      },
+      {
+        "text": "Customer evaluating Chorus for conversation intelligence",
+        "memory_type": "competitor",
+        "scope": "project",
+        "decision": "RETAIN",
+        "frequency": 1,
+        "evidence_count": 1,
+        "conflicts": []
+      },
+      {
+        "text": "Customer demoed Wingman, found too expensive",
+        "memory_type": "competitor",
+        "scope": "project",
+        "decision": "RETAIN",
+        "frequency": 1,
+        "evidence_count": 1,
+        "conflicts": []
+      },
+      {
+        "text": "Rep focuses differentiation on Gong and Chorus",
+        "memory_type": "pattern",
+        "scope": "common",
+        "decision": "RETAIN",
+        "frequency": 1,
+        "evidence_count": 1,
+        "conflicts": []
+      }
+    ],
+    "rejected_candidates": [],
+    "conflicts": [],
+    "isolation_tests": [
+      {
+        "query": "Gong",
+        "expected_bank": "memoryguard-project-globex",
+        "not_in_banks": ["memoryguard-project-acme", "memoryguard-common-rep-001", "memoryguard-common-rep-002"],
+        "expected_count": 1
+      },
+      {
+        "query": "Chorus",
+        "expected_bank": "memoryguard-project-globex",
+        "not_in_banks": ["memoryguard-project-acme"],
+        "expected_count": 1
+      },
+      {
+        "query": "Wingman",
+        "expected_bank": "memoryguard-project-globex",
+        "not_in_banks": ["memoryguard-project-acme"],
+        "expected_count": 1
+      },
+      {
+        "query": "competitor",
+        "expected_bank": "memoryguard-project-globex",
+        "not_in_banks": ["memoryguard-project-acme"],
+        "expected_count": 3
+      }
+    ]
+  }
+}

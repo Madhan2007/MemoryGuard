@@ -1,0 +1,56 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# Demo assets (large files)
+demo/assets/*.png
+demo/assets/*.jpg
+demo/assets/*.mp4
+demo/assets/*.gif
+
+# Hindsight local data
+.hindsight/
+data/local/
+
+# Test outputs
+test_outputs/
+evaluation_results/
+
+# Temporary
+tmp/
+temp/
+*.tmp

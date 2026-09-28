@@ -1,0 +1,121 @@
+{
+  "scenario_id": "umbrella",
+  "customer": "Umbrella Corp",
+  "deal_id": "deal-umbrella-001",
+  "rep_id": "rep-005",
+  "turns": [
+    {
+      "turn_id": 1,
+      "speaker": "customer",
+      "text": "I like getting SMS reminders for meetings.",
+      "expected_memories": [
+        {
+          "text": "Customer likes SMS reminders for meetings",
+          "decision": "RETAIN",
+          "scope": "project",
+          "memory_type": "preference"
+        }
+      ],
+      "expected_rejections": []
+    },
+    {
+      "turn_id": 2,
+      "speaker": "rep",
+      "text": "Got it, I'll set up SMS reminders for our meetings.",
+      "expected_memories": [
+        {
+          "text": "Rep sets up SMS reminders for customer",
+          "decision": "RETAIN",
+          "scope": "common",
+          "memory_type": "pattern"
+        }
+      ],
+      "expected_rejections": []
+    },
+    {
+      "turn_id": 3,
+      "speaker": "customer",
+      "text": "The project is progressing well, we're in the technical evaluation phase.",
+      "expected_memories": [],
+      "expected_rejections": []
+    },
+    {
+      "turn_id": 4,
+      "speaker": "customer",
+      "text": "We're in final negotiations on the contract terms.",
+      "expected_memories": [],
+      "expected_rejections": []
+    },
+    {
+      "turn_id": 5,
+      "speaker": "customer",
+      "text": "Actually, just email is fine for reminders now.",
+      "expected_memories": [
+        {
+          "text": "Customer prefers email for reminders",
+          "decision": "UPDATE",
+          "scope": "project",
+          "memory_type": "preference",
+          "conflicts_with": "mem-sms-reminders",
+          "change_note": "Explicit change from SMS to email reminders"
+        }
+      ],
+      "expected_rejections": []
+    }
+  ],
+  "ground_truth": {
+    "final_memories": [
+      {
+        "text": "Customer likes SMS reminders for meetings",
+        "memory_type": "preference",
+        "scope": "project",
+        "decision": "RETAIN",
+        "frequency": 1,
+        "evidence_count": 1,
+        "status": "superseded",
+        "decay_score": 0.15,
+        "conflicts": ["mem-email-reminders"]
+      },
+      {
+        "text": "Customer prefers email for reminders",
+        "memory_type": "preference",
+        "scope": "project",
+        "decision": "UPDATE",
+        "frequency": 1,
+        "evidence_count": 1,
+        "conflicts": ["mem-sms-reminders"],
+        "change_note": "Explicit change from SMS to email reminders"
+      },
+      {
+        "text": "Rep sets up SMS reminders for customer",
+        "memory_type": "pattern",
+        "scope": "common",
+        "decision": "RETAIN",
+        "frequency": 1,
+        "evidence_count": 1,
+        "conflicts": []
+      }
+    ],
+    "rejected_candidates": [],
+    "conflicts": [
+      {
+        "memory_id": "mem-email-reminders",
+        "conflicts_with": "mem-sms-reminders",
+        "conflict_type": "CONTRADICTION",
+        "resolution": "TEMPORAL_OVERRIDE"
+      },
+      {
+        "memory_id": "mem-sms-reminders",
+        "conflicts_with": "mem-email-reminders",
+        "conflict_type": "CONTRADICTION",
+        "resolution": "TEMPORAL_OVERRIDE"
+      }
+    ],
+    "lifecycle_tests": {
+      "decay_applied": true,
+      "old_memory_relevance": 0.15,
+      "new_memory_relevance": 0.95,
+      "explicit_change_wins": true
+    }
+  }
+}
