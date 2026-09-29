@@ -6,6 +6,7 @@ import { MemoryCard } from '../components/memory/MemoryCard';
 import { MemoryDetailDrawer } from '../components/memory/MemoryDetailDrawer';
 import { ScopeVisualization } from '../components/memory/ScopeVisualization';
 import { MergeVisualization } from '../components/memory/MergeVisualization';
+import { Badge } from '../components/common/Badge';
 import { MemoryCardSkeleton } from '../components/common/Skeleton';
 import { MemoryItem } from '../types';
 

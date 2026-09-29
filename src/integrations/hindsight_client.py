@@ -1,5 +1,5 @@
-import httpx
 import asyncio
+import json
 import os
 from typing import List, Dict, Any, Optional
 import logging
@@ -26,33 +26,45 @@ class HindsightMemory:
 
 
 class HindsightClient:
-    """Real Hindsight Cloud API client"""
-    
+    """Adapter for the official Hindsight Cloud SDK."""
+
     def __init__(self):
         from src.config import settings
-        self.base_url = settings.HINDSIGHT_BASE_URL.rstrip("/")
-        self.headers = {
-            "Authorization": f"Bearer {settings.HINDSIGHT_API_KEY}",
-            "Content-Type": "application/json",
-        }
-        self._client: Optional[httpx.AsyncClient] = None
+        from hindsight_client import Hindsight
 
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=30.0)
-        return self._client
+        self.base_url = settings.HINDSIGHT_BASE_URL.rstrip("/")
+        self._client = Hindsight(
+            base_url=self.base_url,
+            api_key=settings.HINDSIGHT_API_KEY,
+            timeout=30.0,
+        )
 
     async def close(self):
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        await self._client.aclose()
 
-    def _memory_from_response(self, data: Dict) -> HindsightMemory:
+    @staticmethod
+    def _metadata_to_sdk(metadata: Dict[str, Any]) -> Dict[str, str]:
+        return {key: json.dumps(value, default=str) for key, value in metadata.items()}
+
+    @staticmethod
+    def _metadata_from_sdk(metadata: Optional[Dict[str, str]]) -> Dict[str, Any]:
+        decoded = {}
+        for key, value in (metadata or {}).items():
+            try:
+                decoded[key] = json.loads(value)
+            except (TypeError, json.JSONDecodeError):
+                decoded[key] = value
+        return decoded
+
+    @classmethod
+    def _memory_from_response(cls, result: Any) -> HindsightMemory:
+        scores = getattr(result, "scores", None)
+        score = getattr(scores, "final", 0.0) if scores else 0.0
         return HindsightMemory(
-            id=data.get("id", ""),
-            text=data.get("text", ""),
-            metadata=data.get("metadata", {}),
-            score=data.get("score", 0.0),
+            id=result.id,
+            text=result.text,
+            metadata=cls._metadata_from_sdk(getattr(result, "metadata", None)),
+            score=float(score or 0.0),
         )
 
     async def recall(
@@ -63,28 +75,13 @@ class HindsightClient:
         filters: Optional[Dict[str, Any]] = None,
         min_score: float = 0.0,
     ) -> List[HindsightMemory]:
-        client = await self._get_client()
-        payload = {
-            "query": query,
-            "top_k": top_k,
-            "min_score": min_score,
-        }
-        if filters:
-            payload["filters"] = filters
-
-        url = f"{self.base_url}/banks/{bank_id}/recall"
         try:
-            resp = await client.post(url, headers=self.headers, json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-            memories = [self._memory_from_response(m) for m in data.get("memories", [])]
-            return memories
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                logger.warning(f"Bank not found: {bank_id}, returning empty")
-                return []
-            logger.error(f"Hindsight recall failed: {e}")
-            return []
+            resp = await self._client.arecall(bank_id=bank_id, query=query)
+            results = getattr(resp, "results", []) or []
+            memories = [self._memory_from_response(m) for m in results]
+            if min_score > 0:
+                memories = [m for m in memories if m.score >= min_score]
+            return memories[:top_k]
         except Exception as e:
             logger.error(f"Hindsight recall error: {e}")
             return []
@@ -96,37 +93,45 @@ class HindsightClient:
         metadata: Dict[str, Any],
         merge_policy: Optional[Dict[str, Any]] = None,
     ) -> HindsightMemory:
-        client = await self._get_client()
-        payload = {
-            "text": text,
-            "metadata": metadata,
-        }
-        if merge_policy:
-            payload["merge_policy"] = merge_policy
-
-        url = f"{self.base_url}/banks/{bank_id}/memories"
         try:
-            resp = await client.post(url, headers=self.headers, json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-            return self._memory_from_response(data)
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                await self._create_bank(bank_id)
-                return await self.retain(bank_id, text, metadata, merge_policy)
-            logger.error(f"Hindsight retain failed: {e}")
-            raise
+            resp = await self._client.aretain(
+                bank_id=bank_id,
+                content=text,
+                metadata=self._metadata_to_sdk(metadata),
+            )
+            op_id = getattr(resp, "operation_id", None) or str(uuid.uuid4())[:8]
+            return HindsightMemory(
+                id=op_id,
+                text=text,
+                metadata=metadata,
+                score=1.0,
+            )
         except Exception as e:
-            logger.error(f"Hindsight retain error: {e}")
-            raise
+            logger.warning(f"Hindsight retain initial attempt failed, ensuring bank exists: {e}")
+            try:
+                await self._create_bank(bank_id)
+                resp = await self._client.aretain(
+                    bank_id=bank_id,
+                    content=text,
+                    metadata=self._metadata_to_sdk(metadata),
+                )
+                op_id = getattr(resp, "operation_id", None) or str(uuid.uuid4())[:8]
+                return HindsightMemory(
+                    id=op_id,
+                    text=text,
+                    metadata=metadata,
+                    score=1.0,
+                )
+            except Exception as err:
+                logger.error(f"Hindsight retain retry failed: {err}")
+                raise
 
     async def _create_bank(self, bank_id: str):
-        client = await self._get_client()
-        url = f"{self.base_url}/banks"
-        payload = {"id": bank_id}
-        resp = await client.post(url, headers=self.headers, json=payload)
-        resp.raise_for_status()
-        logger.info(f"Created bank: {bank_id}")
+        try:
+            await self._client.acreate_bank(bank_id=bank_id)
+            logger.info(f"Created bank: {bank_id}")
+        except Exception as e:
+            logger.warning(f"Create bank note: {bank_id}: {e}")
 
     async def recall_both(
         self,
