@@ -1,6 +1,6 @@
 # Member 3 - Scenarios Specification
 
-## Status: PLANNED
+## Status: IMPLEMENTED & VERIFIED
 
 ## Scenario Format
 

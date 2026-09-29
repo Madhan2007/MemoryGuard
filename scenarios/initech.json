@@ -1,0 +1,53 @@
+{
+  "scenario_id": "initech",
+  "customer": "Initech",
+  "deal_id": "deal-initech-001",
+  "rep_id": "rep-001",
+  "turns": [
+    {
+      "turn_id": 1,
+      "speaker": "customer",
+      "text": "We need CRM integration with Salesforce. That's a must-have for us.",
+      "expected_memories": [
+        {"text": "Customer requires Salesforce CRM integration", "decision": "RETAIN", "scope": "project", "memory_type": "technical"}
+      ]
+    },
+    {
+      "turn_id": 2,
+      "speaker": "rep",
+      "text": "Understood. Salesforce integration is a requirement.",
+      "expected_memories": []
+    },
+    {
+      "turn_id": 3,
+      "speaker": "customer",
+      "text": "Actually, we're migrating to HubSpot. So we need HubSpot integration instead of Salesforce.",
+      "expected_memories": [
+        {"text": "Customer requires HubSpot CRM integration", "decision": "UPDATE", "scope": "project", "memory_type": "technical", "conflicts_with": "Customer requires Salesforce CRM integration"}
+      ]
+    },
+    {
+      "turn_id": 4,
+      "speaker": "customer",
+      "text": "Our procurement process requires three quotes. We're also looking at a competitor.",
+      "expected_memories": [
+        {"text": "Procurement requires three quotes", "decision": "RETAIN", "scope": "project", "memory_type": "requirement"},
+        {"text": "Customer evaluating competitor", "decision": "RETAIN", "scope": "project", "memory_type": "competitor"}
+      ]
+    }
+  ],
+  "ground_truth": {
+    "final_memories": [
+      {"text": "Customer requires HubSpot CRM integration", "scope": "project", "memory_type": "technical"},
+      {"text": "Procurement requires three quotes", "scope": "project", "memory_type": "requirement"},
+      {"text": "Customer evaluating competitor", "scope": "project", "memory_type": "competitor"}
+    ],
+    "conflicts": [
+      {
+        "original": "Customer requires Salesforce CRM integration",
+        "updated": "Customer requires HubSpot CRM integration",
+        "resolution": "UPDATE with conflict link"
+      }
+    ]
+  }
+}

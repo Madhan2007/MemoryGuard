@@ -1,465 +1,326 @@
-"""
-Agent Harness - Main Agent Loop
-
-Member 2 ownership.
-
-Orchestrates the full conversation turn processing:
-Recall → Context Build → Main LLM → Candidate → MemoryGuard → Retain
-"""
-
-import asyncio
+from pydantic_ai import Agent
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
+from src.integrations.hindsight_client import hindsight_client, HindsightMemory
+from src.integrations.groq_client import groq_client
+from src.memory.memory_guard import memory_guard
+from src.memory.schema import (
+    CandidateMemory,
+    VerificationContext,
+    MemoryDecision,
+    TurnResult,
+    MemoryType,
+    Scope,
+    SourceEvidence,
+    DecisionType,
+)
+from src.config import settings, get_project_bank, get_common_bank, get_pydantic_ai_model
+import json
 import logging
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass, field
+import time
+import uuid
+import os
 from datetime import datetime
 
-from ..integrations.hindsight_client import HindsightClient
-from ..integrations.groq_client import GroqClient
-from ..memory.memory_guard import (
-    MemoryGuard, 
-    CandidateMemory, 
-    VerificationContext, 
-    MemoryDecision,
-    Memory,
-    Scope,
-    DecisionType,
-    MemoryType,
-)
-from ..integrations.config import Config
-from .session import Session, SessionStore, InMemorySessionStore
-from .logger import get_logger
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+USE_MOCK = os.getenv("USE_MOCK_LLM", "true").lower() == "true"
+
+MAIN_AGENT_PROMPT = """You are a Deal Intelligence Agent helping a sales representative.
+
+You have access to verified deal memories from previous interactions. Use these to personalize your response.
+
+RECALLED MEMORIES:
+{memories}
+
+CURRENT DEAL: {deal_id}
+CUSTOMER: {customer_name}
+DEAL STAGE: {deal_stage}
+
+INSTRUCTIONS:
+- Provide a helpful, personalized response to the sales rep
+- Reference relevant memories naturally (e.g., "Based on our previous discussion...")
+- If no relevant memories, acknowledge this is a new conversation
+- Be concise and actionable
+- Do NOT make up facts not in memories
+
+RESPONSE FORMAT: Provide your response as a natural language answer."""
+
+CANDIDATE_EXTRACTION_PROMPT = """Extract potential memories from this interaction.
+
+USER INPUT: {user_input}
+AGENT RESPONSE: {agent_response}
+DEAL CONTEXT: {deal_id}, {customer_name}, Stage: {deal_stage}
+
+Extract actionable memories that would be useful for future deal interactions. Focus on:
+- Customer preferences (communication, process)
+- Requirements and constraints
+- Objections raised
+- Competitors mentioned
+- Stakeholder information
+- Pricing/compliance/technical details
+- Decisions made
+
+Return JSON with this structure:
+{{
+  "candidates": [
+    {{
+      "text": "memory text",
+      "memory_type": "preference|requirement|objection|competitor|stakeholder|pricing|compliance|technical|decision|pattern",
+      "confidence": 0.0-1.0
+    }}
+  ]
+}}
+
+Only extract memories that are specific, actionable, and grounded in the conversation. Reject filler, pleasantries, or vague statements."""
 
 
-@dataclass
-class TurnMetadata:
-    """Metadata about a conversation turn."""
-    turn_id: int
-    latency_ms: float
-    tokens_used: int
-    memories_recalled: int
-    candidates_extracted: int
-    decisions_made: int
-
-
-@dataclass
-class ChatMessage:
-    """Chat message for UI/history."""
-    role: str  # "user" or "assistant"
-    content: str
-    timestamp: datetime
-    metadata: Optional[Dict[str, Any]] = None
-
-
-@dataclass
-class AgentResponse:
-    """Complete response from agent turn processing."""
-    response_text: str
-    candidate_memories: List[CandidateMemory]
-    memory_decisions: List[MemoryDecision]
-    recalled_memories: List[Memory]
-    turn_metadata: TurnMetadata
-    chat_message: ChatMessage
-    errors: List[str] = field(default_factory=list)
+class CandidateExtraction(BaseModel):
+    candidates: List[CandidateMemory] = Field(default_factory=list)
 
 
 class AgentLoop:
-    """
-    Main agent conversation loop.
-    
-    Processes each user turn through the full pipeline:
-    1. Recall relevant memories from Hindsight
-    2. Build context with retrieved memories
-    3. Generate response with Main LLM
-    4. Extract candidate memories from response
-    5. Verify each candidate with MemoryGuard
-    6. Persist accepted memories to Hindsight
-    7. Return response to user
-    """
-    
-    def __init__(
-        self,
-        hindsight: HindsightClient,
-        groq: GroqClient,
-        memoryguard: MemoryGuard,
-        session_store: SessionStore,
-        config: Optional[Config] = None,
-    ):
-        self.hindsight = hindsight
-        self.groq = groq
-        self.memoryguard = memoryguard
-        self.sessions = session_store
-        self.config = config or Config()
-    
+    def __init__(self):
+        if USE_MOCK:
+            self.main_agent = None
+            self.extraction_agent = None
+            # Track which contamination candidates have been injected per deal
+            self._contamination_injected: Dict[str, set] = {}
+        else:
+            self.main_agent = Agent(
+                model=get_pydantic_ai_model(settings.MAIN_MODEL),
+                system_prompt="You are a Deal Intelligence Agent.",
+            )
+            self.extraction_agent = Agent(
+                model=get_pydantic_ai_model(settings.MAIN_MODEL),
+                system_prompt="You extract structured memory candidates from conversations.",
+                output_type=CandidateExtraction,
+            )
+
+    def _mock_extract_candidates(self, user_input: str, agent_response: str, deal_id: str) -> List[CandidateMemory]:
+        """Mock candidate extraction for demo"""
+        candidates = []
+        text_lower = user_input.lower()
+        
+        # Initialize tracking for this deal
+        if deal_id not in self._contamination_injected:
+            self._contamination_injected[deal_id] = set()
+        
+        if "prefer email" in text_lower or "email" in text_lower:
+            candidates.append(CandidateMemory(
+                text="Customer prefers email communication",
+                memory_type=MemoryType.PREFERENCE,
+                confidence=0.95,
+            ))
+        elif "evaluating soc2" in text_lower or "soc2" in text_lower:
+            candidates.append(CandidateMemory(
+                text="Customer is evaluating SOC2 compliance",
+                memory_type=MemoryType.COMPLIANCE,
+                confidence=0.9,
+            ))
+            # Only inject contamination candidate ONCE per deal (first mention)
+            if "soc2_contamination" not in self._contamination_injected[deal_id]:
+                candidates.append(CandidateMemory(
+                    text="SOC2 is mandatory before purchase",
+                    memory_type=MemoryType.COMPLIANCE,
+                    confidence=0.85,
+                ))
+                self._contamination_injected[deal_id].add("soc2_contamination")
+        elif "hipaa" in text_lower:
+            candidates.append(CandidateMemory(
+                text="Customer requires HIPAA compliance",
+                memory_type=MemoryType.COMPLIANCE,
+                confidence=0.95,
+            ))
+        elif "gong" in text_lower or "chorus" in text_lower:
+            candidates.append(CandidateMemory(
+                text="Customer evaluating Gong and Chorus for conversation intelligence",
+                memory_type=MemoryType.COMPETITOR,
+                confidence=0.9,
+            ))
+        elif "integration" in text_lower or "api" in text_lower:
+            candidates.append(CandidateMemory(
+                text="Customer needs CRM integration",
+                memory_type=MemoryType.TECHNICAL,
+                confidence=0.85,
+            ))
+        elif "sso" in text_lower or "single sign" in text_lower:
+            candidates.append(CandidateMemory(
+                text="Customer requires SSO",
+                memory_type=MemoryType.TECHNICAL,
+                confidence=0.9,
+            ))
+        elif "price" in text_lower or "budget" in text_lower:
+            candidates.append(CandidateMemory(
+                text="Customer has budget constraints",
+                memory_type=MemoryType.PRICING,
+                confidence=0.8,
+            ))
+        elif "stakeholder" in text_lower or "champion" in text_lower or "blocker" in text_lower:
+            candidates.append(CandidateMemory(
+                text="New stakeholder identified",
+                memory_type=MemoryType.STAKEHOLDER,
+                confidence=0.85,
+            ))
+        
+        return candidates
+
+    def _serialize_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert datetime objects to ISO format strings for JSON serialization"""
+        result = {}
+        for k, v in metadata.items():
+            if isinstance(v, datetime):
+                result[k] = v.isoformat()
+            elif isinstance(v, dict):
+                result[k] = self._serialize_metadata(v)
+            elif isinstance(v, list):
+                result[k] = [self._serialize_metadata(item) if isinstance(item, dict) else item for item in v]
+            else:
+                result[k] = v
+        return result
+
     async def process_turn(
         self,
         user_input: str,
         deal_id: str,
-        rep_id: str
-    ) -> AgentResponse:
-        """
-        Process a single conversation turn.
-        
-        Args:
-            user_input: User's message
-            deal_id: Current deal identifier
-            rep_id: Sales rep identifier
-            
-        Returns:
-            AgentResponse with response and metadata
-        """
-        start_time = datetime.utcnow()
-        turn_id = 0
-        
-        try:
-            # Get or create session
-            session = await self.sessions.get_or_create(deal_id, rep_id)
-            turn_id = session.turn_count + 1
-            
-            # Add user message to session
-            session.add_turn("user", user_input)
-            
-            # 1. RECALL PHASE
-            recalled_memories = await self._recall_memories(
-                user_input, deal_id, rep_id
-            )
-            
-            # 2. CONTEXT BUILD
-            messages = self._build_context_messages(session, recalled_memories)
-            
-            # 3. GENERATION PHASE
-            llm_start = datetime.utcnow()
-            response_text = await self.groq.call_main_llm(messages)
-            llm_latency = (datetime.utcnow() - llm_start).total_seconds() * 1000
-            
-            # 4. CANDIDATE EXTRACTION
-            candidates = self._extract_candidates(response_text, session, user_input)
-            
-            # 5. GOVERNANCE PHASE
-            decisions = []
-            for candidate in candidates:
-                context = self._build_verification_context(
-                    candidate, session, deal_id, rep_id, turn_id
-                )
-                scope = self._determine_scope(candidate, context)
-                
-                decision = await self.memoryguard.verify(
-                    candidate, user_input, context, scope
-                )
-                decisions.append(decision)
-                
-                # 6. PERSIST DECISION
-                if decision.decision in [DecisionType.RETAIN, DecisionType.UPDATE, DecisionType.MERGE]:
-                    await self._persist_decision(decision, deal_id, rep_id)
-            
-            # 7. UPDATE SESSION
-            session.add_turn("assistant", response_text)
-            
-            # Build response
-            turn_metadata = TurnMetadata(
-                turn_id=turn_id,
-                latency_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
-                tokens_used=0,  # TODO: Track from LLM response
-                memories_recalled=len(recalled_memories),
-                candidates_extracted=len(candidates),
-                decisions_made=len(decisions),
-            )
-            
-            chat_message = ChatMessage(
-                role="assistant",
-                content=response_text,
-                timestamp=datetime.utcnow(),
-                metadata={
-                    "turn_id": turn_id,
-                    "latency_ms": turn_metadata.latency_ms,
-                    "candidates": len(candidates),
-                    "decisions": [d.decision.value for d in decisions],
-                }
-            )
-            
-            logger.info(
-                "turn_processed",
-                deal_id=deal_id,
-                rep_id=rep_id,
-                turn=turn_id,
-                latency_ms=turn_metadata.latency_ms,
-                candidates=len(candidates),
-                decisions=[d.decision.value for d in decisions],
-            )
-            
-            return AgentResponse(
-                response_text=response_text,
-                candidate_memories=candidates,
-                memory_decisions=decisions,
-                recalled_memories=recalled_memories,
-                turn_metadata=turn_metadata,
-                chat_message=chat_message,
-            )
-            
-        except Exception as e:
-            logger.error("turn_processing_failed", deal_id=deal_id, rep_id=rep_id, error=str(e))
-            return AgentResponse(
-                response_text="I apologize, but I encountered an error processing your message. Please try again.",
-                candidate_memories=[],
-                memory_decisions=[],
-                recalled_memories=[],
-                turn_metadata=TurnMetadata(
-                    turn_id=turn_id,
-                    latency_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
-                    tokens_used=0,
-                    memories_recalled=0,
-                    candidates_extracted=0,
-                    decisions_made=0,
-                ),
-                chat_message=ChatMessage(
-                    role="assistant",
-                    content="Error occurred",
-                    timestamp=datetime.utcnow(),
-                ),
-                errors=[str(e)],
-            )
-    
-    async def _recall_memories(
-        self, 
-        query: str, 
-        deal_id: str, 
-        rep_id: str
-    ) -> List[Memory]:
-        """Recall relevant memories from both project and common banks."""
-        project_bank = self.hindsight.project_bank(deal_id)
-        common_bank = self.hindsight.common_bank(rep_id)
-        
-        # Parallel recall
-        project_task = self.hindsight.recall(project_bank, query, top_k=10)
-        common_task = self.hindsight.recall(common_bank, query, top_k=10)
-        
-        project_memories, common_memories = await asyncio.gather(
-            project_task, common_task, return_exceptions=True
-        )
-        
-        # Handle exceptions
-        if isinstance(project_memories, Exception):
-            logger.warning("project_recall_failed", deal_id=deal_id, error=str(project_memories))
-            project_memories = []
-        if isinstance(common_memories, Exception):
-            logger.warning("common_recall_failed", rep_id=rep_id, error=str(common_memories))
-            common_memories = []
-        
-        # Merge and rank
-        return self._merge_and_rank(project_memories, common_memories)
-    
-    def _merge_and_rank(
-        self, 
-        project: List[Memory], 
-        common: List[Memory]
-    ) -> List[Memory]:
-        """Merge memories from both banks, deduplicate, and rank."""
-        all_memories = project + common
-        
-        # Deduplicate by content similarity
-        deduped = self._deduplicate(all_memories)
-        
-        # Rank by: relevance, recency, frequency, scope priority
-        ranked = sorted(deduped, key=self._ranking_key, reverse=True)
-        
-        return ranked[:10]
-    
-    def _deduplicate(self, memories: List[Memory]) -> List[Memory]:
-        """Remove duplicate memories by content similarity."""
-        unique = []
-        for mem in memories:
-            is_dup = False
-            for existing in unique:
-                if self._text_similarity(mem.text, existing.text) > 0.9:
-                    is_dup = True
-                    break
-            if not is_dup:
-                unique.append(mem)
-        return unique
-    
-    def _text_similarity(self, text1: str, text2: str) -> float:
-        """Simple text similarity (placeholder for embeddings)."""
-        words1 = set(text1.lower().split())
-        words2 = set(text2.lower().split())
-        if not words1 or not words2:
-            return 0.0
-        return len(words1 & words2) / len(words1 | words2)
-    
-    def _ranking_key(self, mem: Memory) -> tuple:
-        """Ranking key for memory retrieval."""
-        # Higher is better: relevance, recency, frequency, project priority
-        recency = mem.metadata.get("last_seen", "")
-        frequency = mem.metadata.get("frequency", 1)
-        is_project = 1 if mem.metadata.get("scope") == "project" else 0
-        return (1.0, recency, frequency, is_project)  # Simplified
-    
-    def _build_context_messages(
-        self, 
-        session: "Session", 
-        recalled_memories: List[Memory]
-    ) -> List[Dict[str, str]]:
-        """Build LLM messages with context from recalled memories."""
-        messages = []
-        
-        # System prompt with memories
-        if recalled_memories:
-            memory_context = "\n".join([
-                f"- {m.text} (source: {m.metadata.get('source_quote', 'N/A')[:100]})"
-                for m in recalled_memories[:5]
-            ])
-            system_prompt = f"""You are a sales assistant with access to verified customer memories.
-            
-Relevant customer context:
-{memory_context}
-
-Use this context to personalize your responses. Be natural and conversational."""
-        else:
-            system_prompt = """You are a sales assistant. Be helpful and professional."""
-        
-        messages.append({"role": "system", "content": system_prompt})
-        
-        # Add conversation history
-        for turn in session.get_history(max_turns=10):
-            messages.append({"role": turn.role, "content": turn.content})
-        
-        return messages
-    
-    def _extract_candidates(
-        self, 
-        response: str, 
-        session: "Session",
-        source_text: str
-    ) -> List[CandidateMemory]:
-        """Extract candidate memories from LLM response."""
-        # TODO: Implement structured extraction from LLM
-        # For now, simple heuristic extraction
-        candidates = []
-        
-        # Simple heuristic: look for key phrases indicating memories
-        memory_indicators = [
-            ("prefer", MemoryType.PREFERENCE),
-            ("require", MemoryType.REQUIREMENT),
-            ("need", MemoryType.REQUIREMENT),
-            ("objection", MemoryType.OBJECTION),
-            ("competitor", MemoryType.COMPETITOR),
-            ("evaluating", MemoryType.COMPETITOR),
-            ("budget", MemoryType.PRICING),
-            ("price", MemoryType.PRICING),
-            ("compliance", MemoryType.COMPLIANCE),
-            ("SOC2", MemoryType.COMPLIANCE),
-            ("technical", MemoryType.TECHNICAL),
-            ("decision", MemoryType.DECISION),
-            ("stakeholder", MemoryType.STAKEHOLDER),
-        ]
-        
-        response_lower = response.lower()
-        for indicator, mem_type in memory_indicators:
-            if indicator in response_lower:
-                # Find the sentence containing the indicator
-                sentences = response.split('.')
-                for sent in sentences:
-                    if indicator in sent.lower():
-                        candidates.append(CandidateMemory(
-                            text=sent.strip(),
-                            memory_type=mem_type,
-                            confidence=0.7,
-                        ))
-                        break
-        
-        return candidates
-    
-    def _build_verification_context(
-        self,
-        candidate: CandidateMemory,
-        session: "Session",
-        deal_id: str,
         rep_id: str,
-        turn_id: int
-    ) -> VerificationContext:
-        """Build context for MemoryGuard verification."""
-        # Recall existing memories for consolidation/conflict checks
-        existing = []  # TODO: Recall similar memories
-        
-        return VerificationContext(
+        conversation_id: str = None,
+        turn_id: int = 1,
+        customer_name: str = "",
+        deal_stage: str = "discovery",
+    ) -> TurnResult:
+        start_time = time.time()
+        audit_id = str(uuid.uuid4())
+
+        if conversation_id is None:
+            conversation_id = f"conv-{deal_id}"
+
+        # Step 1: Recall from Hindsight (both banks)
+        query = f"{user_input} {deal_id} {customer_name}"
+        recalled = await hindsight_client.recall_both(deal_id, rep_id, query, top_k=10)
+
+        # Format memories for context
+        memory_texts = []
+        for m in recalled:
+            scope_tag = m.metadata.get("scope", "unknown")
+            freq = m.metadata.get("frequency", 1)
+            memory_texts.append(f"[{scope_tag}] {m.text} (freq={freq})")
+
+        memory_context = "\n".join(memory_texts) if memory_texts else "No prior memories recalled."
+
+        # Step 2: Call main LLM for response
+        prompt = MAIN_AGENT_PROMPT.format(
+            memories=memory_context,
+            deal_id=deal_id,
+            customer_name=customer_name or deal_id,
+            deal_stage=deal_stage,
+        )
+
+        messages = [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": user_input},
+        ]
+        response_text = await groq_client.call_main(messages)
+
+        # Step 3: Extract candidate memories
+        if USE_MOCK:
+            candidate_memories = self._mock_extract_candidates(user_input, response_text, deal_id)
+        else:
+            extract_prompt = CANDIDATE_EXTRACTION_PROMPT.format(
+                user_input=user_input,
+                agent_response=response_text,
+                deal_id=deal_id,
+                customer_name=customer_name or deal_id,
+                deal_stage=deal_stage,
+            )
+            try:
+                extraction_result = await self.extraction_agent.run(extract_prompt)
+                candidate_memories = extraction_result.output.candidates
+            except Exception as e:
+                logger.warning(f"Candidate extraction failed: {e}")
+                candidate_memories = []
+
+        # Step 4: Verify each candidate through MemoryGuard
+        memory_decisions = []
+        context = VerificationContext(
             deal_id=deal_id,
             rep_id=rep_id,
-            conversation_id=session.conversation_id,
+            conversation_id=conversation_id,
             turn_id=turn_id,
-            existing_memories=existing,
-            deal_stage="discovery",  # TODO: Track deal stage
-            customer_name="Customer",
+            existing_memories=[{
+                "id": m.id,
+                "text": m.text,
+                "metadata": m.metadata,
+            } for m in recalled],
+            deal_stage=deal_stage,
+            customer_name=customer_name or deal_id,
         )
-    
-    def _determine_scope(
-        self, 
-        candidate: CandidateMemory, 
-        context: VerificationContext
-    ) -> "ScopeInfo":
-        """Determine memory scope (delegated to MemoryGuard)."""
-        from ..memory.scopes import ScopeManager
-        scope_manager = ScopeManager()
-        scope = scope_manager.assign_scope(candidate, context)
-        return scope_manager.get_bank_id(scope, context)
-    
-    async def _persist_decision(
-        self, 
-        decision: MemoryDecision, 
-        deal_id: str, 
-        rep_id: str
-    ):
-        """Persist MemoryGuard decision to Hindsight."""
-        scope = decision.scope
-        bank_id = (
-            self.hindsight.project_bank(deal_id) 
-            if scope == Scope.PROJECT 
-            else self.hindsight.common_bank(rep_id)
-        )
-        
-        metadata = {
-            "memory_type": decision.memory_text,  # TODO: extract from decision
-            "scope": scope.value,
-            "decision": decision.decision.value,
-            "confidence": decision.confidence,
-            "frequency": decision.merge_instruction.new_frequency if decision.merge_instruction else 1,
-            "evidence_count": decision.merge_instruction.new_evidence_count if decision.merge_instruction else 1,
-            "first_seen": decision.merge_instruction.new_first_seen.isoformat() if decision.merge_instruction else datetime.utcnow().isoformat(),
-            "last_seen": decision.merge_instruction.new_last_seen.isoformat() if decision.merge_instruction else datetime.utcnow().isoformat(),
-            "source_type": "conversation",
-            "source_id": context.conversation_id if 'context' in locals() else "unknown",
-            "conversation_id": context.conversation_id if 'context' in locals() else "unknown",
-            "turn_id": context.turn_id if 'context' in locals() else 0,
-            "source_quote": decision.source_evidence[0].quote if decision.source_evidence else "",
-            "provenance": {
-                "source_conversation_id": decision.provenance.source_conversation_id,
-                "source_turn_ids": decision.provenance.source_turn_ids,
-                "source_quotes": decision.provenance.source_quotes,
-                "extraction_method": decision.provenance.extraction_method,
-                "verifier_model": decision.provenance.verifier_model,
-                "verification_timestamp": decision.provenance.verification_timestamp.isoformat(),
-                "decision_chain": [
-                    {"step": s.step, "result": s.result, "reason": s.reason}
-                    for s in decision.provenance.decision_chain
-                ],
-            },
-            "conflicts": [c.conflicting_memory_id for c in decision.conflicts],
-            "similar_memories": [m.memory_id for m in decision.similar_memories],
-            "audit_id": decision.audit_id,
-        }
-        
-        merge_policy = None
-        if decision.merge_instruction:
-            merge_policy = MergePolicy(
-                target_id=decision.merge_instruction.target_memory_id,
-                strategy=decision.merge_instruction.merge_strategy,
+
+        for candidate in candidate_memories:
+            # Determine default scope from memory type
+            default_scope = Scope.COMMON if candidate.memory_type == MemoryType.PATTERN else Scope.PROJECT
+
+            decision = await memory_guard.verify(
+                candidate=candidate,
+                source_text=user_input,
+                context=context,
+                scope=default_scope,
             )
-        
-        await self.hindsight.retain(bank_id, decision.memory_text, metadata, merge_policy)
+            memory_decisions.append(decision)
+
+            # Step 5: Persist verified memories
+            if decision.decision in (DecisionType.RETAIN, DecisionType.MERGE):
+                target_bank = get_project_bank(deal_id) if decision.scope == Scope.PROJECT else get_common_bank(rep_id)
+
+                now = datetime.utcnow()
+                metadata = {
+                    "memory_type": candidate.memory_type.value,
+                    "scope": decision.scope.value,
+                    "decision": decision.decision.value,
+                    "confidence": decision.confidence,
+                    "frequency": 1,
+                    "evidence_count": len(decision.source_evidence),
+                    "first_seen": now.isoformat(),
+                    "last_seen": now.isoformat(),
+                    "source_type": "conversation",
+                    "source_id": conversation_id,
+                    "conversation_id": conversation_id,
+                    "turn_id": turn_id,
+                    "source_quote": decision.source_evidence[0].quote if decision.source_evidence else user_input,
+                    "provenance": decision.provenance.model_dump() if decision.provenance else {},
+                    "conflicts": [c.conflicting_memory_id for c in decision.conflicts],
+                    "similar_memories": [s.memory_id for s in decision.similar_memories],
+                    "audit_id": decision.audit_id,
+                }
+
+                if decision.merge_instruction:
+                    metadata["merge_policy"] = decision.merge_instruction.model_dump()
+
+                # Serialize metadata for JSON
+                metadata = self._serialize_metadata(metadata)
+
+                await hindsight_client.retain(
+                    bank_id=target_bank,
+                    text=decision.memory_text,
+                    metadata=metadata,
+                    merge_policy=decision.merge_instruction.model_dump() if decision.merge_instruction else None,
+                )
+
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        return TurnResult(
+            answer=response_text,
+            retrieved_memories=[{
+                "id": m.id,
+                "text": m.text,
+                "score": m.score,
+                "metadata": m.metadata,
+            } for m in recalled],
+            candidate_memories=candidate_memories,
+            memory_decisions=memory_decisions,
+            audit_id=audit_id,
+            latency_ms=latency_ms,
+        )
 
 
-__all__ = [
-    "AgentLoop",
-    "AgentResponse",
-    "TurnMetadata",
-    "ChatMessage",
-]
+agent_loop = AgentLoop()

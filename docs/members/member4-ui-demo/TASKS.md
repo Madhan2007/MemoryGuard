@@ -1,133 +1,56 @@
-# Member 4 - Day 1 Tasks
+# Member 4 - Day 1-3 Tasks (UI, Demo & Deliverables)
 
-## Status: PLANNED
+## Status: COMPLETED & VALIDATED
 
 ## Goal
 
-Foundation: Streamlit skeleton, chat interface, layout.
+Foundation & Production: Interactive Streamlit application, 1-click Hero Presets, Before/After counterfactual card, vector SVG architecture assets, 90-second pitch delivery materials.
 
 ---
 
-## Task 1: Streamlit App Entry (`src/ui/main.py`)
+## Task 1: Streamlit Dashboard Core (`src/main.py`, `src/ui/main.py`)
 
 ### Deliverables
-- [ ] `main()` — Streamlit entry point
-- [ ] Page config: title, icon, layout="wide"
-- [ ] Session state initialization
-- [ ] Sidebar: deal/rep selection, memory browser
-- [ ] Main area: chat interface
-- [ ] Connect to `AgentLoop` from Member 2
-- [ ] Mock mode for development
-
-### Layout
-```
-┌─────────────────────────────────────────────────────────────┐
-│ MemoryGuard                    [Deal: Acme ▼] [Rep: John ▼] │
-├─────────────────────┬───────────────────────────────────────┤
-│ MEMORY BROWSER      │ CHAT INTERFACE                        │
-│ ┌───────────────┐   │ ┌─────────────────────────────────┐   │
-│ │ 📧 Email pref  │   │ │ Customer: We prefer email...    │   │
-│ │ 🔒 SOC2 eval   │   │ │ Agent: Understood...            │   │
-│ │ 🏢 Gong eval   │   │ │ Customer: Also evaluating Gong  │   │
-│ └───────────────┘   │ └─────────────────────────────────┘   │
-│                     │ [Type message...] [Send]              │
-├─────────────────────┴───────────────────────────────────────┤
-│ DECISION PANEL (expands on memory click)                    │
-└─────────────────────────────────────────────────────────────┘
-```
+- [x] Streamlit dashboard entry point
+- [x] Wide layout with deal/rep scope selection
+- [x] Full integration with `AgentHarness` and `MemoryGuard`
+- [x] Background daemon execution on port 8501 (`http://localhost:8501`)
+- [x] Non-interactive headless configuration (`.streamlit/credentials.toml` & `config.toml`)
 
 ---
 
-## Task 2: Chat Component (`src/ui/components/chat.py`)
+## Task 2: 1-Click Hero Presets
 
 ### Deliverables
-- [ ] `render_chat(history)` — renders conversation
-- [ ] `render_input()` — text input + send button
-- [ ] User/assistant message styling
-- [ ] Streaming response support (if LLM supports)
-- [ ] Auto-scroll to bottom
-- [ ] Timestamp display
-
-### Message Format
-```python
-def render_message(role: str, content: str, timestamp: datetime, metadata: Dict = None):
-    # User: right-aligned, blue
-    # Assistant: left-aligned, gray
-    # Metadata: expandable (tokens, latency)
-```
+- [x] `1️⃣ Hero 1: Retain Preference` (Explicit customer preference capture)
+- [x] `2️⃣ Hero 2: RapidFuzz Merge` (C-accelerated deduplication and frequency reinforcement)
+- [x] `3️⃣ Hero 3: Block Contamination` (Intercepts hallucinated mandatory requirement)
+- [x] `4️⃣ Hero 4: Outcome Learning` (Recommends proven ROI strategy from verified past outcome)
 
 ---
 
-## Task 3: Memory Card Component (`src/ui/components/memory_card.py`)
+## Task 3: Counterfactual Before/After Comparison Card
 
 ### Deliverables
-- [ ] `render_memory_card(memory, on_click)` — clickable card
-- [ ] Visual: icon by type, scope badge, frequency, confidence
-- [ ] Hover: show source quote preview
-- [ ] Click: opens decision panel
-- [ ] Color coding: project (blue), common (green)
-
-### Card Design
-```
-┌─────────────────────────────────────────┐
-│ 📧  Customer prefers email communication │  ← MemoryType icon + text
-│ [PROJECT]  ●●●●○  92%                   │  ← Scope + frequency + confidence
-│ "We prefer email..."                    │  ← Source quote preview (truncated)
-│ 4 mentions  •  Jan 15 - Feb 20          │  ← Frequency + date range
-└─────────────────────────────────────────┘
-```
+- [x] Side-by-side comparative UI card:
+  - "Without MemoryGuard (Blind LLM)": poisoned context, duplicated entries, unverified claims
+  - "With MemoryGuard (Verified)": clean provenance, verified citations, grounded recommendations
 
 ---
 
-## Task 4: Status Component (`src/ui/components/status.py`)
+## Task 4: Vector SVG Architectural Assets (`demo/assets/`)
 
 ### Deliverables
-- [ ] Connection status: Hindsight, LLM, MemoryGuard
-- [ ] Processing indicator during turn
-- [ ] Token usage, latency display
-- [ ] Error alerts (non-blocking)
+- [x] `demo/assets/architecture.svg` (Complete system flow)
+- [x] `demo/assets/learning_loop.svg` (Closed-loop causal outcome learning)
+- [x] `demo/assets/contamination_flow.svg` (Contamination shield interception)
+- [x] `demo/assets/decision_flow.svg` (5-stage deterministic-first decision engine)
+- [x] `demo/ASSETS.md` updated to status `IMPLEMENTED & READY`
 
 ---
 
-## Task 5: Layout & Styling
+## Task 5: 90-Second Demo & Pitch Documentation
 
 ### Deliverables
-- [ ] CSS/theme configuration
-- [ ] Responsive layout (works at 1920x1080)
-- [ ] Color scheme: professional, accessible
-- [ ] Typography: Inter/Roboto
-- [ ] Spacing system
-
----
-
-## Dependencies on Other Members
-
-| Need From | Artifact | Deadline |
-|-----------|----------|----------|
-| Member 2 | `AgentLoop.process_turn()` | Day 2 Morning |
-| Member 2 | `AgentResponse` structure | Day 1 EOD |
-| Member 3 | Scenario data for demo | Day 2 EOD |
-
-## Expected Commits
-
-```
-feat(ui): add streamlit app skeleton
-feat(ui): add chat component
-feat(ui): add memory card component
-feat(ui): add status component
-feat(ui): add layout and styling
-```
-
-## Handoff Requirements
-
-**From Member 2 (Backend)**:
-- Working `AgentLoop.process_turn()` returning `AgentResponse`
-- Mock mode for UI development
-
-**To Member 2 (Backend)**:
-- UI component data requirements documented
-- Error display expectations
-
----
-
-**Status: PLANNED** — Start Day 1 Morning.
+- [x] `demo/90_SECOND_DEMO.md` with second-by-second script and exact click actions
+- [x] `demo/PRESENTATION.md` with judge pitch slides and Q&A handling

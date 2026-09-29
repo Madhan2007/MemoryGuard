@@ -1,0 +1,54 @@
+{
+  "scenario_id": "globex",
+  "customer": "Globex Inc",
+  "deal_id": "deal-globex-001",
+  "rep_id": "rep-001",
+  "turns": [
+    {
+      "turn_id": 1,
+      "speaker": "customer",
+      "text": "We're evaluating Gong for conversation intelligence. Chorus is another option we're looking at.",
+      "expected_memories": [
+        {"text": "Customer evaluating Gong for conversation intelligence", "decision": "RETAIN", "scope": "project", "memory_type": "competitor"},
+        {"text": "Customer evaluating Chorus for conversation intelligence", "decision": "RETAIN", "scope": "project", "memory_type": "competitor"}
+      ]
+    },
+    {
+      "turn_id": 2,
+      "speaker": "rep",
+      "text": "Got it. Gong and Chorus are the main competitors you're considering.",
+      "expected_memories": []
+    },
+    {
+      "turn_id": 3,
+      "speaker": "customer",
+      "text": "Our budget is around $120K annually. We need approval above $100K.",
+      "expected_memories": [
+        {"text": "Customer budget $120K annually", "decision": "RETAIN", "scope": "project", "memory_type": "pricing"},
+        {"text": "Approval required above $100K", "decision": "RETAIN", "scope": "project", "memory_type": "pricing"}
+      ]
+    },
+    {
+      "turn_id": 4,
+      "speaker": "customer",
+      "text": "I prefer email for communication. That's my general preference across all vendors.",
+      "expected_memories": [
+        {"text": "Rep prefers email communication", "decision": "RETAIN", "scope": "common", "memory_type": "preference"}
+      ]
+    }
+  ],
+  "ground_truth": {
+    "final_memories": [
+      {"text": "Customer evaluating Gong for conversation intelligence", "scope": "project", "memory_type": "competitor"},
+      {"text": "Customer evaluating Chorus for conversation intelligence", "scope": "project", "memory_type": "competitor"},
+      {"text": "Customer budget $120K annually", "scope": "project", "memory_type": "pricing"},
+      {"text": "Approval required above $100K", "scope": "project", "memory_type": "pricing"},
+      {"text": "Rep prefers email communication", "scope": "common", "memory_type": "preference"}
+    ],
+    "scope_isolation_test": {
+      "query": "competitor",
+      "expected_in_globex": 2,
+      "expected_in_acme": 0
+    }
+  }
+}

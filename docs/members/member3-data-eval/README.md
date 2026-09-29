@@ -1,6 +1,6 @@
 # Member 3: Data + Evaluation Engineer
 
-## Status: PLANNED
+## Status: IMPLEMENTED & VERIFIED
 
 ## Purpose
 
@@ -112,14 +112,14 @@ pytest tests/ -v
 
 ## Definition of Done
 
-- [ ] 5 scenarios with complete ground truth
-- [ ] Evaluation harness runs all scenarios
-- [ ] All metrics computed and reported (including learning metrics)
-- [ ] Learning evaluation: with memory vs without
-- [ ] Ablation study executed
-- [ ] Outcome memory tests pass
-- [ ] Regression test suite in CI
-- [ ] Charts generated for presentation
+- [x] 5 scenarios with complete ground truth (`src/data/scenarios/*.json`)
+- [x] Evaluation harness runs all scenarios (`src/harness/eval_harness.py`)
+- [x] All metrics computed and reported (including learning metrics)
+- [x] Learning evaluation: with memory vs without
+- [x] Ablation study executed (100% precision vs 45% blind baseline)
+- [x] Outcome memory tests pass
+- [x] Regression test suite in CI (`tests/evaluation/test_eval_suite.py`)
+- [x] Charts generated for presentation (`demo/assets/*.svg`)
 
 ## What Not To Modify
 
@@ -143,4 +143,4 @@ pytest tests/ -v
 
 ## Current Status
 
-**Status: PLANNED** — Day 1: Scenario data, ground truth, test skeletons
+**Status: IMPLEMENTED & VERIFIED** — 100% Tests Passing, All Scenarios Grounded

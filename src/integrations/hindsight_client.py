@@ -1,346 +1,273 @@
-"""
-Hindsight Client Wrapper
-
-Member 2 ownership.
-
-Provides async interface to Hindsight persistent memory layer.
-"""
-
 import asyncio
-import logging
+import json
+import os
 from typing import List, Dict, Any, Optional
-from dataclasses import dataclass, asdict
-from datetime import datetime
-from enum import Enum
-
-from .config import get_config, Config
+import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
-
-class HindsightError(Exception):
-    """Base exception for Hindsight errors."""
-    pass
+# Check if using mock or real Hindsight
+USE_MOCK_HINDSIGHT = os.getenv("USE_MOCK_HINDSIGHT", "true").lower() == "true"
 
 
-class HindsightUnavailableError(HindsightError):
-    """Hindsight service unavailable."""
-    pass
-
-
-class HindsightTimeoutError(HindsightError):
-    """Hindsight request timeout."""
-    pass
-
-
-class HindsightRateLimitError(HindsightError):
-    """Hindsight rate limit exceeded."""
-    pass
-
-
-class BankNotFoundError(HindsightError):
-    """Memory bank not found."""
-    pass
-
-
-class MergeConflictError(HindsightError):
-    """Merge conflict during concurrent retain."""
-    pass
-
-
-class MergeStrategy(Enum):
-    """Strategy for merging memories in Hindsight."""
-    APPEND_PROVENANCE = "append_provenance"
-    REPLACE = "replace"
-    SYNTHESIZE = "synthesize"
-
-
-@dataclass
-class MergePolicy:
-    """Merge policy instruction for Hindsight."""
-    target_id: str
-    strategy: MergeStrategy = MergeStrategy.APPEND_PROVENANCE
-
-
-@dataclass
-class Memory:
-    """Memory record from Hindsight."""
-    id: str
-    text: str
-    metadata: Dict[str, Any]
-    score: Optional[float] = None
+class HindsightMemory:
+    def __init__(
+        self,
+        id: str,
+        text: str,
+        metadata: Dict[str, Any],
+        score: float = 0.0,
+    ):
+        self.id = id
+        self.text = text
+        self.metadata = metadata
+        self.score = score
 
 
 class HindsightClient:
-    """
-    Async client for Hindsight persistent memory layer.
-    
-    Provides recall, retain, and bank management operations.
-    Supports mock mode for development without API access.
-    """
-    
-    # Retry configuration
-    RETRY_CONFIG = {
-        "max_attempts": 3,
-        "base_delay": 1.0,
-        "max_delay": 10.0,
-        "exponential_base": 2.0,
-    }
-    
-    # Circuit breaker configuration
-    CIRCUIT_BREAKER = {
-        "failure_threshold": 5,
-        "recovery_timeout": 30.0,
-        "half_open_requests": 3,
-    }
-    
-    def __init__(self, config: Optional[Config] = None):
-        self.config = config or get_config()
-        self.mock_mode = self.config.MOCK_HINDSIGHT
-        
-        # Circuit breaker state
-        self._failure_count = 0
-        self._last_failure_time = 0.0
-        self._circuit_state = "closed"  # closed, open, half-open
-        
-        # Mock storage for development
-        self._mock_banks: Dict[str, Dict[str, Memory]] = {}
-        
-        # Initialize real SDK client if not mocking
-        self._sdk = None
-        if not self.mock_mode:
-            self._init_sdk()
-    
-    def _init_sdk(self):
-        """Initialize Hindsight SDK client."""
-        # TODO: Replace with actual Hindsight SDK import
-        # from hindsight import HindsightSDK
-        # self._sdk = HindsightSDK(
-        #     api_key=self.config.HINDSIGHT_API_KEY,
-        #     base_url=self.config.HINDSIGHT_BASE_URL,
-        # )
-        logger.warning("Hindsight SDK not initialized - using mock mode")
-        self.mock_mode = True
-    
-    def project_bank(self, deal_id: str) -> str:
-        """Get project bank ID for deal."""
-        return f"{self.config.HINDSIGHT_PROJECT_BANK_PREFIX}{deal_id}"
-    
-    def common_bank(self, rep_id: str) -> str:
-        """Get common bank ID for rep."""
-        return f"{self.config.HINDSIGHT_COMMON_BANK_PREFIX}{rep_id}"
-    
-    async def create_bank(self, bank_id: str) -> bool:
-        """Create memory bank (idempotent)."""
-        if self.mock_mode:
-            if bank_id not in self._mock_banks:
-                self._mock_banks[bank_id] = {}
-            return True
-        
-        # TODO: Implement real SDK call
-        # await self._sdk.create_bank(bank_id)
-        return True
-    
+    """Adapter for the official Hindsight Cloud SDK."""
+
+    def __init__(self):
+        from src.config import settings
+        from hindsight_client import Hindsight
+
+        self.base_url = settings.HINDSIGHT_BASE_URL.rstrip("/")
+        self._client = Hindsight(
+            base_url=self.base_url,
+            api_key=settings.HINDSIGHT_API_KEY,
+            timeout=30.0,
+        )
+
+    async def close(self):
+        await self._client.aclose()
+
+    @staticmethod
+    def _metadata_to_sdk(metadata: Dict[str, Any]) -> Dict[str, str]:
+        return {key: json.dumps(value, default=str) for key, value in metadata.items()}
+
+    @staticmethod
+    def _metadata_from_sdk(metadata: Optional[Dict[str, str]]) -> Dict[str, Any]:
+        decoded = {}
+        for key, value in (metadata or {}).items():
+            try:
+                decoded[key] = json.loads(value)
+            except (TypeError, json.JSONDecodeError):
+                decoded[key] = value
+        return decoded
+
+    @classmethod
+    def _memory_from_response(cls, result: Any) -> HindsightMemory:
+        scores = getattr(result, "scores", None)
+        score = getattr(scores, "final", 0.0) if scores else 0.0
+        return HindsightMemory(
+            id=result.id,
+            text=result.text,
+            metadata=cls._metadata_from_sdk(getattr(result, "metadata", None)),
+            score=float(score or 0.0),
+        )
+
     async def recall(
         self,
         bank_id: str,
         query: str,
         top_k: int = 10,
         filters: Optional[Dict[str, Any]] = None,
-        min_score: float = 0.3
-    ) -> List[Memory]:
-        """
-        Semantic recall from Hindsight memory bank.
-        
-        Args:
-            bank_id: Hindsight bank identifier
-            query: Search query text
-            top_k: Maximum results to return
-            filters: Optional metadata filters
-            min_score: Minimum similarity score
-            
-        Returns:
-            List of matching memories with scores
-        """
-        if self.mock_mode:
-            return await self._mock_recall(bank_id, query, top_k)
-        
-        return await self._with_retry(
-            self._sdk.recall,
-            bank_id=bank_id,
-            query=query,
-            top_k=top_k,
-            filters=filters,
-            min_score=min_score
-        )
-    
+        min_score: float = 0.0,
+    ) -> List[HindsightMemory]:
+        try:
+            resp = await self._client.arecall(bank_id=bank_id, query=query)
+            results = getattr(resp, "results", []) or []
+            memories = [self._memory_from_response(m) for m in results]
+            if min_score > 0:
+                memories = [m for m in memories if m.score >= min_score]
+            return memories[:top_k]
+        except Exception as e:
+            logger.error(f"Hindsight recall error: {e}")
+            return []
+
     async def retain(
         self,
         bank_id: str,
-        memory: str,
+        text: str,
         metadata: Dict[str, Any],
-        merge_policy: Optional[MergePolicy] = None
-    ) -> Memory:
-        """
-        Store or update memory in Hindsight.
-        
-        Args:
-            bank_id: Target bank identifier
-            memory: Memory text content
-            metadata: Memory metadata (includes MemoryGuard fields)
-            merge_policy: Optional merge instruction for consolidation
-            
-        Returns:
-            Created/updated memory record
-        """
-        if self.mock_mode:
-            return await self._mock_retain(bank_id, memory, metadata, merge_policy)
-        
-        return await self._with_retry(
-            self._sdk.retain,
-            bank_id=bank_id,
-            content=memory,
-            metadata=metadata,
-            merge_policy=merge_policy
-        )
-    
-    async def get_memory(self, memory_id: str) -> Memory:
-        """Get single memory by ID."""
-        if self.mock_mode:
-            for bank in self._mock_banks.values():
-                if memory_id in bank:
-                    return bank[memory_id]
-            raise KeyError(f"Memory {memory_id} not found")
-        
-        # TODO: Implement real SDK call
-        raise NotImplementedError("Real SDK get_memory not implemented")
-    
-    async def update_memory(self, memory_id: str, metadata: Dict[str, Any]) -> Memory:
-        """Update memory metadata."""
-        if self.mock_mode:
-            for bank in self._mock_banks.values():
-                if memory_id in bank:
-                    bank[memory_id].metadata.update(metadata)
-                    return bank[memory_id]
-            raise KeyError(f"Memory {memory_id} not found")
-        
-        # TODO: Implement real SDK call
-        raise NotImplementedError("Real SDK update_memory not implemented")
-    
-    # Circuit breaker methods
-    def _check_circuit(self):
-        """Check circuit breaker state."""
-        if self._circuit_state == "open":
-            if (asyncio.get_event_loop().time() - self._last_failure_time) > self.CIRCUIT_BREAKER["recovery_timeout"]:
-                self._circuit_state = "half-open"
-                logger.info("Circuit breaker entering half-open state")
-            else:
-                raise HindsightUnavailableError("Circuit breaker open")
-    
-    def _on_success(self):
-        """Record successful call."""
-        self._failure_count = 0
-        self._circuit_state = "closed"
-    
-    def _on_failure(self):
-        """Record failed call."""
-        self._failure_count += 1
-        self._last_failure_time = asyncio.get_event_loop().time()
-        if self._failure_count >= self.CIRCUIT_BREAKER["failure_threshold"]:
-            self._circuit_state = "open"
-            logger.warning("Circuit breaker opened due to repeated failures")
-    
-    async def _with_retry(self, func, *args, **kwargs):
-        """Execute function with retry logic and circuit breaker."""
-        self._check_circuit()
-        
-        for attempt in range(self.RETRY_CONFIG["max_attempts"]):
+        merge_policy: Optional[Dict[str, Any]] = None,
+    ) -> HindsightMemory:
+        try:
+            resp = await self._client.aretain(
+                bank_id=bank_id,
+                content=text,
+                metadata=self._metadata_to_sdk(metadata),
+            )
+            op_id = getattr(resp, "operation_id", None) or str(uuid.uuid4())[:8]
+            return HindsightMemory(
+                id=op_id,
+                text=text,
+                metadata=metadata,
+                score=1.0,
+            )
+        except Exception as e:
+            logger.warning(f"Hindsight retain initial attempt failed, ensuring bank exists: {e}")
             try:
-                result = await func(*args, **kwargs)
-                self._on_success()
-                return result
-            except HindsightTimeoutError:
-                if attempt == self.RETRY_CONFIG["max_attempts"] - 1:
-                    self._on_failure()
-                    raise
-                delay = min(
-                    self.RETRY_CONFIG["base_delay"] * (self.RETRY_CONFIG["exponential_base"] ** attempt),
-                    self.RETRY_CONFIG["max_delay"]
+                await self._create_bank(bank_id)
+                resp = await self._client.aretain(
+                    bank_id=bank_id,
+                    content=text,
+                    metadata=self._metadata_to_sdk(metadata),
                 )
-                logger.warning(f"Hindsight timeout, retrying in {delay}s", attempt=attempt + 1)
-                await asyncio.sleep(delay)
-            except HindsightRateLimitError:
-                self._on_failure()
-                await asyncio.sleep(5.0)
-                continue
-            except Exception as e:
-                self._on_failure()
-                # Don't retry on unknown errors
-                logger.error(f"Hindsight error: {e}")
-                raise HindsightUnavailableError(f"Hindsight operation failed: {e}")
-        
-        raise HindsightUnavailableError("Max retries exceeded")
-    
-    # Mock implementations
-    async def _mock_recall(self, bank_id: str, query: str, top_k: int) -> List[Memory]:
-        """Mock recall for development."""
-        if bank_id not in self._mock_banks:
-            return []
-        
-        memories = list(self._mock_banks[bank_id].values())
-        # Simple text matching for mock
-        query_lower = query.lower()
-        matched = [
-            m for m in memories 
-            if query_lower in m.text.lower() or any(query_lower in str(v).lower() for v in m.metadata.values())
-        ]
-        return matched[:top_k]
-    
-    async def _mock_retain(
-        self, 
-        bank_id: str, 
-        memory: str, 
-        metadata: Dict[str, Any],
-        merge_policy: Optional[MergePolicy] = None
-    ) -> Memory:
-        """Mock retain for development."""
-        if bank_id not in self._mock_banks:
-            self._mock_banks[bank_id] = {}
-        
-        import uuid
-        mem_id = metadata.get("audit_id", f"mock-{uuid.uuid4().hex[:8]}")
-        
-        # Handle merge policy
-        if merge_policy and merge_policy.target_id in self._mock_banks[bank_id]:
-            # Merge into existing
-            existing = self._mock_banks[bank_id][merge_policy.target_id]
-            existing.text = memory  # Simplified: replace text
-            existing.metadata.update(metadata)
-            existing.metadata["frequency"] = merge_policy.strategy == "append_provenance" and existing.metadata.get("frequency", 1) + 1 or 1
-            return existing
-        
-        mem = Memory(
-            id=mem_id,
-            text=memory,
-            metadata=metadata
+                op_id = getattr(resp, "operation_id", None) or str(uuid.uuid4())[:8]
+                return HindsightMemory(
+                    id=op_id,
+                    text=text,
+                    metadata=metadata,
+                    score=1.0,
+                )
+            except Exception as err:
+                logger.error(f"Hindsight retain retry failed: {err}")
+                raise
+
+    async def _create_bank(self, bank_id: str):
+        try:
+            await self._client.acreate_bank(bank_id=bank_id)
+            logger.info(f"Created bank: {bank_id}")
+        except Exception as e:
+            logger.warning(f"Create bank note: {bank_id}: {e}")
+
+    async def recall_both(
+        self,
+        deal_id: str,
+        rep_id: str,
+        query: str,
+        top_k: int = 10,
+    ) -> List[HindsightMemory]:
+        from src.config import get_project_bank, get_common_bank
+        project_bank = get_project_bank(deal_id)
+        common_bank = get_common_bank(rep_id)
+
+        project_results, common_results = await asyncio.gather(
+            self.recall(project_bank, query, top_k),
+            self.recall(common_bank, query, top_k),
         )
-        self._mock_banks[bank_id][mem_id] = mem
-        return mem
+
+        all_results = list(project_results) + list(common_results)
+        all_results.sort(key=lambda m: (-m.score, -m.metadata.get("frequency", 1)))
+        return all_results[:top_k]
+
+
+class MockHindsightClient:
+    """In-memory mock of Hindsight for demo"""
     
-    def clear_mock_data(self):
-        """Clear all mock data (for testing)."""
-        self._mock_banks.clear()
+    def __init__(self):
+        self.banks: Dict[str, List[HindsightMemory]] = {}
+    
+    def _get_bank(self, bank_id: str) -> List[HindsightMemory]:
+        if bank_id not in self.banks:
+            self.banks[bank_id] = []
+        return self.banks[bank_id]
+    
+    def _memory_from_data(self, data: Dict) -> HindsightMemory:
+        return HindsightMemory(
+            id=data.get("id", str(uuid.uuid4())),
+            text=data.get("text", ""),
+            metadata=data.get("metadata", {}),
+            score=data.get("score", 0.0),
+        )
+
+    async def recall(
+        self,
+        bank_id: str,
+        query: str,
+        top_k: int = 10,
+        filters: Optional[Dict[str, Any]] = None,
+        min_score: float = 0.0,
+    ) -> List[HindsightMemory]:
+        bank = self._get_bank(bank_id)
+        
+        query_lower = query.lower()
+        results = []
+        
+        for mem in bank:
+            mem_text_lower = mem.text.lower()
+            score = 0.0
+            for term in query_lower.split():
+                if term in mem_text_lower:
+                    score += 1.0
+            
+            freq = mem.metadata.get("frequency", 1)
+            score += freq * 0.1
+            
+            if score > 0:
+                results.append((mem, score))
+        
+        results.sort(key=lambda x: -x[1])
+        return [self._memory_from_data({
+            "id": m.id,
+            "text": m.text,
+            "metadata": m.metadata,
+            "score": s,
+        }) for m, s in results[:top_k]]
+
+    async def retain(
+        self,
+        bank_id: str,
+        text: str,
+        metadata: Dict[str, Any],
+        merge_policy: Optional[Dict[str, Any]] = None,
+    ) -> HindsightMemory:
+        bank = self._get_bank(bank_id)
+        
+        if merge_policy and merge_policy.get("target_id"):
+            target_id = merge_policy["target_id"]
+            for mem in bank:
+                if mem.id == target_id:
+                    if "text" in merge_policy:
+                        mem.text = merge_policy["text"]
+                    mem.metadata["frequency"] = merge_policy.get("new_frequency", mem.metadata.get("frequency", 1) + 1)
+                    mem.metadata["evidence_count"] = merge_policy.get("new_evidence_count", mem.metadata.get("evidence_count", 1) + 1)
+                    mem.metadata["last_seen"] = merge_policy.get("new_last_seen", "")
+                    if "provenance" in merge_policy:
+                        existing_prov = mem.metadata.get("provenance", {})
+                        new_prov = merge_policy["provenance"]
+                        existing_quotes = existing_prov.get("source_quotes", [])
+                        new_quotes = new_prov.get("source_quotes", [])
+                        existing_prov["source_quotes"] = existing_quotes + new_quotes
+                        mem.metadata["provenance"] = existing_prov
+                    return mem
+        
+        mem_id = str(uuid.uuid4())[:8]
+        mem = HindsightMemory(
+            id=mem_id,
+            text=text,
+            metadata=metadata,
+            score=1.0,
+        )
+        bank.append(mem)
+        logger.info(f"Mock Hindsight: Stored memory in {bank_id}: {text[:50]}...")
+        return mem
+
+    async def recall_both(
+        self,
+        deal_id: str,
+        rep_id: str,
+        query: str,
+        top_k: int = 10,
+    ) -> List[HindsightMemory]:
+        from src.config import get_project_bank, get_common_bank
+        project_bank = get_project_bank(deal_id)
+        common_bank = get_common_bank(rep_id)
+
+        project_results = await self.recall(project_bank, query, top_k)
+        common_results = await self.recall(common_bank, query, top_k)
+
+        all_results = list(project_results) + list(common_results)
+        all_results.sort(key=lambda m: (-m.score, -m.metadata.get("frequency", 1)))
+        return all_results[:top_k]
 
 
-__all__ = [
-    "HindsightClient",
-    "Memory",
-    "MergePolicy",
-    "MergeStrategy",
-    "HindsightError",
-    "HindsightUnavailableError",
-    "HindsightTimeoutError",
-    "HindsightRateLimitError",
-    "BankNotFoundError",
-    "MergeConflictError",
-]
+# Select client based on environment variable
+if USE_MOCK_HINDSIGHT:
+    hindsight_client = MockHindsightClient()
+    logger.info("Using Mock Hindsight Client")
+else:
+    hindsight_client = HindsightClient()
+    logger.info("Using Real Hindsight Cloud Client")

@@ -1,6 +1,6 @@
 # Member 1 - Internal API Reference
 
-## Status: PLANNED
+## Status: IMPLEMENTED & VERIFIED
 
 ## Public Interface
 

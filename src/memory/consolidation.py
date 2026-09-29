@@ -1,145 +1,74 @@
-"""
-MemoryGuard Consolidation Engine
+from rapidfuzz import fuzz
+from src.memory.schema import CandidateMemory
+from typing import List, Dict, Any
+import logging
 
-Member 1 ownership.
-
-Implements merge/consolidation logic (R5-R9, R32-R33).
-"""
-
-from dataclasses import dataclass
-from typing import List, Optional
-from .memory_guard import CandidateMemory, Memory, MemoryType, MergeInstruction, RuleResult, RuleCategory
-from .rules import Rule, rule
+logger = logging.getLogger(__name__)
 
 
-@rule("R8", "Semantic Similarity Threshold", RuleCategory.CONSOLIDATION)
-class SimilarityThresholdRule(Rule):
-    """R8: Merge when semantic similarity exceeds threshold."""
-    
-    def __init__(self, threshold: float = 0.85):
-        self.threshold = threshold
-    
-    async def evaluate(
-        self,
-        candidate: CandidateMemory,
-        source: str,
-        context: "VerificationContext",
-        existing: List[Memory]
-    ) -> RuleResult:
-        similar = await self.find_similar(candidate, existing)
-        if similar:
-            return RuleResult(
-                rule_id=self.rule_id,
-                rule_name=self.rule_name,
-                passed=True,
-                reason=f"Similar memory found (similarity >= {self.threshold})",
-                metadata={"target_memory_id": similar.id, "similarity": self.threshold}
-            )
-        return RuleResult(
-            rule_id=self.rule_id,
-            rule_name=self.rule_name,
-            passed=True,
-            reason="No similar memory found",
-            metadata={}
-        )
-    
-    async def find_similar(
-        self,
-        candidate: CandidateMemory,
-        existing: List[Memory]
-    ) -> Optional[Memory]:
-        """Find semantically similar memory in existing list."""
-        # TODO: Implement semantic similarity (embedding-based or LLM-based)
-        for mem in existing:
-            if mem.memory_type != candidate.memory_type:
-                continue
-            # Placeholder: exact text match for now
-            if mem.text.lower() == candidate.text.lower():
-                return mem
-        return None
+def normalize_text(text: str) -> str:
+    return text.lower().strip()
 
 
-class ConsolidationEngine:
-    """Handles memory consolidation and merge operations."""
-    
-    SIMILARITY_THRESHOLD = 0.85
-    
-    def __init__(self, similarity_threshold: float = 0.85):
-        self.threshold = similarity_threshold
-    
-    async def find_similar(
-        self,
-        candidate: CandidateMemory,
-        existing: List[Memory]
-    ) -> Optional[Memory]:
-        """Find semantically similar existing memory."""
-        # TODO: Implement with embeddings or LLM-based similarity
-        for mem in existing:
-            if mem.memory_type != candidate.memory_type:
-                continue
-            similarity = self._semantic_similarity(candidate.text, mem.text)
-            if similarity >= self.threshold:
-                return mem
-        return None
-    
-    def _semantic_similarity(self, text1: str, text2: str) -> float:
-        """Compute semantic similarity between two texts."""
-        # TODO: Implement with embeddings
-        # Placeholder: simple word overlap
-        words1 = set(text1.lower().split())
-        words2 = set(text2.lower().split())
-        if not words1 or not words2:
-            return 0.0
-        intersection = words1 & words2
-        union = words1 | words2
-        return len(intersection) / len(union)
-    
-    def build_merge_instruction(
-        self,
-        candidate: CandidateMemory,
-        target: Memory
-    ) -> MergeInstruction:
-        """Build merge instruction for Hindsight."""
-        return MergeInstruction(
-            target_memory_id=target.id,
-            merge_strategy="SYNTHESIZE",
-            new_frequency=target.frequency + 1,
-            new_evidence_count=target.evidence_count + 1,
-            new_first_seen=target.first_seen,
-        )
-    
-    def update_frequency(self, memory: Memory) -> Memory:
-        """Increment frequency counter."""
-        memory.frequency += 1
-        return memory
-    
-    def increment_evidence(self, memory: Memory) -> Memory:
-        """Increment evidence count."""
-        memory.evidence_count += 1
-        return memory
-    
-    def update_timestamps(self, memory: Memory) -> Memory:
-        """Update last_seen timestamp."""
-        memory.last_seen = __import__("datetime").datetime.utcnow()
-        return memory
-    
-    def merge_provenance(self, target: Memory, candidate: CandidateMemory, source: str) -> Memory:
-        """Merge provenance chains preserving all source quotes."""
-        # TODO: Implement provenance merging
-        # Should preserve all source quotes from both memories
-        return target
-    
-    def build_merge_reason(self, candidate: CandidateMemory, target: Memory) -> str:
-        """R32: Build transparent merge reason."""
-        return f"Semantic duplicate: both indicate {candidate.memory_type.value}"
-    
-    def update_with_audit(self, memory: Memory, candidate: CandidateMemory) -> Memory:
-        """R33: Update with audit trail (no silent overwrites)."""
-        # TODO: Implement audit trail creation
-        return memory
+def find_similar(
+    candidate: CandidateMemory,
+    existing_memories: List[Dict[str, Any]],
+    threshold: int = 85,
+) -> List[Dict[str, Any]]:
+    if not existing_memories:
+        return []
+
+    candidate_norm = normalize_text(candidate.text)
+    similar = []
+
+    for mem in existing_memories:
+        mem_text = mem.get("text", "")
+        mem_norm = normalize_text(mem_text)
+
+        score = fuzz.ratio(candidate_norm, mem_norm)
+        if score >= threshold:
+            similar.append({
+                **mem,
+                "similarity": score / 100.0,
+            })
+
+    similar.sort(key=lambda x: x["similarity"], reverse=True)
+    return similar
 
 
-__all__ = [
-    "SimilarityThresholdRule",
-    "ConsolidationEngine",
-]
+def check_merge(
+    candidate: CandidateMemory,
+    similar_memories: List[Dict[str, Any]],
+    threshold: int = 85,
+) -> Dict[str, Any]:
+    if not similar_memories:
+        return {
+            "step": "consolidation",
+            "result": "PASS",
+            "should_merge": False,
+            "reason": "No similar memories found",
+            "target_memory": None,
+            "similarity": 0.0,
+        }
+
+    best_match = similar_memories[0]
+    similarity = best_match["similarity"]
+
+    if similarity >= (threshold / 100.0):
+        return {
+            "step": "consolidation",
+            "result": "MERGE",
+            "should_merge": True,
+            "reason": f"Semantic duplicate detected (similarity={similarity:.2f})",
+            "target_memory": best_match,
+            "similarity": similarity,
+        }
+    else:
+        return {
+            "step": "consolidation",
+            "result": "PASS",
+            "should_merge": False,
+            "reason": f"Similar but below merge threshold (similarity={similarity:.2f})",
+            "target_memory": None,
+            "similarity": similarity,
+        }
