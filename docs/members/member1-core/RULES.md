@@ -1,14 +1,14 @@
 # Member 1 - Rules Implementation Guide
 
-## Status: PLANNED
-
+## Status: IMPLEMENTED & VERIFIED
+ 
 ## Rule Implementation Checklist
-
+ 
 Each rule must have:
-- [ ] Implementation in appropriate module
-- [ ] Unit test in `tests/`
-- [ ] Integration test via scenario
-- [ ] Documentation in this file
+- [x] Implementation in appropriate module (`src/memory/*`)
+- [x] Unit test in `tests/unit/test_memory_guard.py`
+- [x] Integration test via scenario (`src/data/scenarios/*`)
+- [x] Documentation in this file & `docs/RULES.md`
 
 ---
 

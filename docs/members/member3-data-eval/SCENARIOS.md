@@ -1,6 +1,6 @@
 # Member 3 - Scenarios Specification
 
-## Status: PLANNED
+## Status: IMPLEMENTED & VERIFIED
 
 ## Scenario Format
 
@@ -84,6 +84,20 @@
 Turn 5: "Please send updates through email." → MERGE with frequency=2
 Turn 12: "Just email, please." → MERGE with frequency=4
 
+### Outcome / Learning Dimension
+
+**Interaction**: Customer objects to pricing.
+
+**Agent recommendation**: ROI explanation.
+
+**Outcome**: Customer responds positively, asks for detailed breakdown.
+
+**Outcome Memory**: "ROI-focused explanation received a positive response for this pricing objection."
+
+**Later**: Agent should recall that this approach previously had a positive outcome for this deal.
+
+**Learning Test**: When similar pricing objection arises in a future turn, agent references previous positive outcome in its recommendation.
+
 ---
 
 ## GLOBEX — Competitor Context Scope Isolation
@@ -159,6 +173,12 @@ CANDIDATE:   "SOC2 is mandatory before purchase."
 MEMORYGUARD: REJECT
 REASON:      "Candidate memory is not supported by the source statement."
 ```
+
+### Learning Prevention
+
+**Why this matters for learning**: If "SOC2 is mandatory" entered trusted memory, the agent would incorrectly treat SOC2 as a hard requirement in future interactions. This prevents unsupported learning.
+
+**Expected**: REJECT — this prevents unsupported claims from entering the learning loop.
 
 ---
 
@@ -260,6 +280,38 @@ REASON:      "Candidate memory is not supported by the source statement."
 | Conflict | INITECH both memories preserved with link |
 | Lifecycle | UMBRELLA decay score computed correctly |
 | Merge Quality | ACME merged memory has all 4 quotes |
+| Outcome Recall | ACME outcome memory recalled for similar situation |
+| Bad Learning Prevention | NORTHWIND unsupported claim does not enter learning loop |
+| Scope Isolation (Outcome) | ACME outcome does not leak to GLOBEX |
+| Overgeneralization Prevention | Deal-specific outcomes not treated as universal |
+
+## Learning Evaluation Tests (Planned)
+
+```python
+def test_verified_outcome_is_recalled():
+    """ACME: Agent recalls relevant outcome when similar situation arises."""
+    pass
+
+def test_unsupported_outcome_claim_is_rejected():
+    """NORTHWIND: Outcome claim without evidence is rejected."""
+    pass
+
+def test_memory_improves_future_response():
+    """ACME: Response quality improves with verified memory vs without."""
+    pass
+
+def test_memory_disabled_ablation():
+    """Compare response quality with and without memory."""
+    pass
+
+def test_outcome_scope_isolated():
+    """GLOBEX: Outcome from one deal does not leak to another."""
+    pass
+
+def test_cross_deal_learning_is_not_overgeneralized():
+    """Agent does not treat deal-specific outcomes as universal."""
+    pass
+```
 
 ---
 

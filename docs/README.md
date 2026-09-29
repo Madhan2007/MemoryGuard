@@ -25,12 +25,14 @@ Shared across all 4 team members.
 | `ARCHITECTURE.md` | System architecture with ASCII diagram |
 | `MEMORY_ARCHITECTURE.md` | Memory bank strategy (project/common/combined) |
 | `MEMORY_RULES.md` | All 34 MemoryGuard rules |
+| `LEARNING_LOOP.md` | Verified learning loop, outcome memory, and feedback architecture |
 | `PRODUCT_REQUIREMENTS.md` | PRD for B2B Deal Intelligence |
 | `DATA_MODEL.md` | Memory schema and field definitions |
 | `API_CONTRACTS.md` | Canonical interfaces between modules |
 | `HINDSIGHT_INTEGRATION.md` | Hindsight role, integration, scope |
 | `MODEL_CONFIGURATION.md` | Model strategy, environment variables |
 | `EVALUATION.md` | Evaluation framework and metrics |
+| `LEARNING_EVALUATION.md` | Learning evaluation metrics, baselines, and ablation tests |
 | `SECURITY.md` | Security considerations |
 | `TEAM_WORKFLOW.md` | Member roles, dependencies, handoffs |
 | `GIT_WORKFLOW.md` | Branching, commits, PR process |

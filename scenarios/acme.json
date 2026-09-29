@@ -1,0 +1,51 @@
+{
+  "scenario_id": "acme",
+  "customer": "Acme Corp",
+  "deal_id": "deal-acme-001",
+  "rep_id": "rep-001",
+  "turns": [
+    {
+      "turn_id": 1,
+      "speaker": "customer",
+      "text": "I prefer email for all deal communication. Please send updates and documents via email.",
+      "expected_memories": [
+        {"text": "Customer prefers email communication", "decision": "RETAIN", "scope": "project", "memory_type": "preference"}
+      ]
+    },
+    {
+      "turn_id": 2,
+      "speaker": "rep",
+      "text": "Understood. I'll send all updates and documents via email. What's the best email address?",
+      "expected_memories": []
+    },
+    {
+      "turn_id": 3,
+      "speaker": "customer",
+      "text": "Please use john.smith@acme.com for all correspondence. I check it regularly throughout the day.",
+      "expected_memories": [
+        {"text": "Customer prefers email communication", "decision": "MERGE", "scope": "project", "memory_type": "preference", "target_memory_id": "mem-001"}
+      ]
+    },
+    {
+      "turn_id": 4,
+      "speaker": "customer",
+      "text": "Also, I still prefer email for any follow-ups or questions. It's my primary communication channel.",
+      "expected_memories": [
+        {"text": "Customer prefers email communication", "decision": "MERGE", "scope": "project", "memory_type": "preference", "target_memory_id": "mem-001"}
+      ]
+    }
+  ],
+  "ground_truth": {
+    "final_memories": [
+      {
+        "text": "Customer prefers email communication",
+        "frequency": 3,
+        "evidence_count": 3,
+        "scope": "project",
+        "memory_type": "preference"
+      }
+    ],
+    "rejected_candidates": [],
+    "conflicts": []
+  }
+}

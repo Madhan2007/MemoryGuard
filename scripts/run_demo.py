@@ -1,129 +1,89 @@
-#!/usr/bin/env python3
-"""
-Run MemoryGuard demo scenario.
-"""
-
 import asyncio
-import argparse
+import json
 import sys
+import os
 from pathlib import Path
 
-# Add src to path
-repo_root = Path(__file__).parent.parent
-sys.path.insert(0, str(repo_root / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from dotenv import load_dotenv
-load_dotenv(Path(__file__).parent.parent / ".env")
-
-from harness.agent_harness import AgentLoop
-from integrations.hindsight_client import HindsightClient
-from integrations.groq_client import GroqClient
-from memory.memory_guard import MemoryGuard
-from harness.session import InMemorySessionStore
-from integrations.config import Config
+from src.harness.agent_harness import agent_loop
+from src.memory.schema import DecisionType
 
 
-# Demo messages for each scenario
-DEMO_MESSAGES = {
-    "acme": [
-        "We prefer email for deal communication.",
-        "I still prefer email for updates.",
-        "We are evaluating SOC2 compliance.",
-        "What should I send next?",
-    ],
-    "northwind": [
-        "We are evaluating SOC2 compliance for our vendor requirements.",
-        "What should I send next?",
-    ],
-    "initech": [
-        "SOC2 is not required for us right now.",
-        "Actually, SOC2 is now required due to new policy.",
-    ],
-    "globex": [
-        "We're evaluating Gong for conversation intelligence.",
-        "Chorus is another option we're looking at.",
-    ],
-    "umbrella": [
-        "I like getting SMS reminders for meetings.",
-        "Actually, just email is fine for reminders now.",
-    ],
-}
+async def run_scenario(scenario_path: str):
+    with open(scenario_path) as f:
+        scenario = json.load(f)
 
-DEAL_IDS = {
-    "acme": "deal-acme-001",
-    "globex": "deal-globex-001",
-    "northwind": "deal-northwind-001",
-    "initech": "deal-initech-001",
-    "umbrella": "deal-umbrella-001",
-}
+    print(f"\n{'='*60}")
+    print(f"SCENARIO: {scenario['scenario_id'].upper()} - {scenario['customer']}")
+    print(f"{'='*60}")
 
-REP_IDS = {
-    "acme": "rep-001",
-    "globex": "rep-002",
-    "northwind": "rep-003",
-    "initech": "rep-004",
-    "umbrella": "rep-005",
-}
+    deal_id = scenario['deal_id']
+    rep_id = scenario['rep_id']
 
+    for turn in scenario['turns']:
+        print(f"\n--- Turn {turn['turn_id']} ({turn['speaker']}) ---")
+        print(f"Input: {turn['text']}")
 
-async def run_demo(scenario: str, speed: float = 1.0):
-    """Run demo scenario."""
-    if scenario not in DEMO_MESSAGES:
-        print(f"Unknown scenario: {scenario}")
-        return
-    
-    messages = DEMO_MESSAGES[scenario]
-    deal_id = DEAL_IDS[scenario]
-    rep_id = REP_IDS[scenario]
-    
-    print(f"\n🎬 Running {scenario.upper()} demo")
-    print(f"Deal: {deal_id}, Rep: {rep_id}")
-    print("=" * 50)
-    
-    # Initialize components
-    config = Config(MOCK_HINDSIGHT=True, MOCK_LLM=True)
-    hindsight = HindsightClient(Config(MOCK_HINDSIGHT=True, MOCK_LLM=True))
-    groq = GroqClient(Config(MOCK_HINDSIGHT=True, MOCK_LLM=True))
-    memoryguard = MemoryGuard()  # TODO: inject proper dependencies
-    session_store = InMemorySessionStore()
-    
-    loop = AgentLoop(hindsight, groq, MemoryGuard(), InMemorySessionStore())
-    
-    for i, message in enumerate(messages):
-        print(f"\n👤 User: {message}")
-        
-        response = await loop.process_turn(message, deal_id, rep_id)
-        
-        print(f"🤖 Agent: {response.response_text}")
-        print(f"   Candidates: {len(response.candidate_memories)}")
-        for d in response.memory_decisions:
-            print(f"   🛡️ {d.decision.value.upper()}: {d.memory_text[:60]}... (conf: {d.confidence:.0%})")
-        
-        # Simulate typing delay
-        await asyncio.sleep(1.0 / speed)
-    
-    print(f"\n✅ {scenario.upper()} demo complete!")
+        result = await agent_loop.process_turn(
+            user_input=turn['text'],
+            deal_id=deal_id,
+            rep_id=rep_id,
+            turn_id=turn['turn_id'],
+            customer_name=scenario['customer'],
+        )
+
+        print(f"Agent: {result.answer[:200]}...")
+
+        if result.memory_decisions:
+            print(f"\n  Memory Decisions:")
+            for dec in result.memory_decisions:
+                badge = dec.decision.value.upper()
+                print(f"    [{badge}] {dec.memory_text}")
+                print(f"         Reason: {dec.reason}")
+                print(f"         Scope: {dec.scope.value}, Confidence: {dec.confidence:.2f}")
+                if dec.verification_status:
+                    print(f"         Verification: {dec.verification_status.value}")
+                if dec.merge_instruction:
+                    print(f"         MERGE -> target: {dec.merge_instruction.target_memory_id[:8]}...")
+        else:
+            print("  No memory candidates extracted")
+
+        if result.retrieved_memories:
+            print(f"  Recalled {len(result.retrieved_memories)} memories")
+
+    print(f"\n{'='*60}")
+    print(f"SCENARIO COMPLETE: {scenario['scenario_id'].upper()}")
+    print(f"{'='*60}\n")
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Run MemoryGuard demo")
-    parser.add_argument(
-        "--scenario",
-        choices=["acme", "northwind", "initech", "globex", "umbrella"],
-        default="acme",
-        help="Demo scenario to run"
-    )
-    parser.add_argument(
-        "--speed",
-        type=float,
-        default=1.0,
-        help="Demo speed multiplier"
-    )
-    
-    args = parser.parse_args()
-    
-    asyncio.run(run_demo(args.scenario, args.speed))
+async def main():
+    print("MEMORYGUARD DEMO - Running All 5 Scenarios")
+    print("=" * 60)
+
+    scenarios_dir = Path(__file__).parent.parent / "scenarios"
+    scenario_files = [
+        "acme.json",
+        "northwind.json",
+        "globex.json",
+        "initech.json",
+        "umbrella.json",
+    ]
+
+    for sf in scenario_files:
+        await run_scenario(str(scenarios_dir / sf))
+
+    print("\n" + "="*60)
+    print("ALL 5 SCENARIOS COMPLETE")
+    print("="*60)
+    print("HERO MOMENTS:")
+    print("1. ACME: Consolidation - 'prefer email' x3 -> MERGE freq=3")
+    print("2. NORTHWIND: Contamination - 'SOC2 mandatory' REJECTED")
+    print("3. GLOBEX: Scope Isolation - Competitors stay in project")
+    print("4. INITECH: Conflict - Salesforce -> HubSpot UPDATE")
+    print("5. UMBRELLA: Lifecycle - SAML -> OIDC UPDATE, stakeholder change")
+    print("="*60)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -1,0 +1,55 @@
+{
+  "scenario_id": "northwind",
+  "customer": "Northwind Health",
+  "deal_id": "deal-northwind-001",
+  "rep_id": "rep-001",
+  "turns": [
+    {
+      "turn_id": 1,
+      "speaker": "customer",
+      "text": "We are evaluating SOC2 compliance for our vendor requirements. It's something we're looking into.",
+      "expected_memories": [
+        {"text": "Customer is evaluating SOC2 compliance", "decision": "RETAIN", "scope": "project", "memory_type": "compliance"}
+      ]
+    },
+    {
+      "turn_id": 2,
+      "speaker": "rep",
+      "text": "Got it. SOC2 evaluation is in progress. I'll make a note of that.",
+      "expected_memories": []
+    },
+    {
+      "turn_id": 3,
+      "speaker": "customer",
+      "text": "We're also looking at HIPAA requirements since we handle patient data. That's a must-have.",
+      "expected_memories": [
+        {"text": "Customer requires HIPAA compliance", "decision": "RETAIN", "scope": "project", "memory_type": "compliance"}
+      ]
+    }
+  ],
+  "ground_truth": {
+    "final_memories": [
+      {
+        "text": "Customer is evaluating SOC2 compliance",
+        "frequency": 1,
+        "evidence_count": 1,
+        "scope": "project",
+        "memory_type": "compliance"
+      },
+      {
+        "text": "Customer requires HIPAA compliance",
+        "frequency": 1,
+        "evidence_count": 1,
+        "scope": "project",
+        "memory_type": "compliance"
+      }
+    ],
+    "rejected_candidates": [
+      {
+        "text": "SOC2 is mandatory before purchase",
+        "reason": "UNSUPPORTED - Source says 'evaluating', candidate says 'mandatory'"
+      }
+    ],
+    "conflicts": []
+  }
+}

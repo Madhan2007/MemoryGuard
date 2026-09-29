@@ -4,9 +4,18 @@
 
 ## Overview
 
-MemoryGuard uses a **two-bank persistent memory strategy** with a **combined read view**.
+MemoryGuard uses a **two-bank persistent memory strategy** with a **combined read view**. Both interaction memories and outcome memories are stored within these banks, with scope isolation ensuring deal-specific context does not leak across deals.
 
 > **Critical**: This is NOT three persistent databases. There are exactly two persistent memory banks in Hindsight. The combined read is a query-time merge.
+
+## Architecture Distinction
+
+| Component | Role |
+|-----------|------|
+| **Hindsight** | Persistent memory, recall, storage, retrieval, and memory infrastructure |
+| **MemoryGuard** | Governance, verification, and policy layer controlling which candidate memories are trusted |
+| **Outcome Memory** | Evidence about whether an interaction, recommendation, or approach actually worked |
+| **Learning** | Future recommendations become more informed by previously verified memories and outcomes |
 
 ## Bank 1: Project Memory
 
@@ -221,6 +230,34 @@ Promotion requires:
 - Explicit MemoryGuard decision (PROMOTE)
 - Provenance preserved from original bank
 - New audit_id for promotion event
+
+## Outcome Memory
+
+### Purpose
+Record what happened after an important deal interaction or recommendation, providing evidence for future assistance.
+
+### Scope
+Outcome memory should remain appropriately scoped:
+
+**Correctly scoped (project):**
+- Acme deal: "ROI framing received positive response."
+- Stored in `memoryguard-project-acme`
+
+**Unjustified generalization (REJECTED):**
+- "ROI framing always works."
+- This would require evidence from multiple deals and cannot be inferred from one outcome
+
+### Outcome in Combined Read
+When the agent recalls context for a deal interaction, outcome memories from the same project bank are included. This gives the agent historical evidence about what approaches worked for this specific deal/customer.
+
+### Guardrails
+
+| Guardrail | Description |
+|-----------|-------------|
+| No automatic causality | "Customer responded positively after ROI explanation" ≠ "ROI caused the positive response" |
+| No cross-deal leakage | Outcome from Acme does not automatically become evidence for Globex |
+| Source evidence required | Outcome claims must be grounded in observable evidence |
+| Scope isolation enforced | Outcome memories follow the same project/common isolation rules |
 
 ---
 

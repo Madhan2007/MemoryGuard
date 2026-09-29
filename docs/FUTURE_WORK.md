@@ -2,9 +2,11 @@
 
 ## Status: PLANNED
 
-> **Important**: These items are **NOT implemented in MVP**. They are documented for post-hackathon continuation.
-
----
+> **Important**: These items are **NOT implemented in MVP**. They are documented as post-hackathon directions.
+>
+> **MVP Scope**: Persistent memory (Hindsight) + governance (MemoryGuard) + outcome memory + verified learning loop + evaluation.
+>
+> **NOT in MVP**: RL, LoRA, large model training, multi-tenant deployment, CRM integration.
 
 ## 1. LoRA-Based Verifier Fine-Tuning
 

@@ -1,5 +1,30 @@
-"""
-MemoryGuard Core Package
+from src.memory.schema import (
+    CandidateMemory,
+    VerificationContext,
+    MemoryDecision,
+    DecisionType,
+    MemoryType,
+    Scope,
+    SourceEvidence,
+    Provenance,
+    MergeInstruction,
+    MergeStrategy,
+    ScopeInfo,
+)
+from src.memory.memory_guard import MemoryGuard, memory_guard
 
-Member 1 ownership: MemoryGuard decision engine, rules, schema, and governance policies.
-"""
+__all__ = [
+    "CandidateMemory",
+    "VerificationContext",
+    "MemoryDecision",
+    "DecisionType",
+    "MemoryType",
+    "Scope",
+    "SourceEvidence",
+    "Provenance",
+    "MergeInstruction",
+    "MergeStrategy",
+    "ScopeInfo",
+    "MemoryGuard",
+    "memory_guard",
+]

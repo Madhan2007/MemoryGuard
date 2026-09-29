@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Build the Streamlit UI, demo visualizations, presentation materials, and judge Q&A preparation.
+Build the Streamlit UI, demo visualizations, presentation materials, and judge Q&A preparation. The UI must tell the learning story — showing how the agent remembers, verifies, learns, and improves.
 
 ## Owner
 
@@ -18,11 +18,38 @@ Build the Streamlit UI, demo visualizations, presentation materials, and judge Q
 - Decision panel (`components/decision_panel.py`)
 - Provenance visualization (`components/provenance.py`)
 - Promotion visualization (`components/promotion.py`)
+- Outcome card visualization (`components/outcome_card.py`)
+- Learning card visualization (`components/learning_card.py`)
 - Before/after comparison (`components/comparison.py`)
 - Status indicators (`components/status.py`)
 - Demo scripts (60s, 90s)
 - Presentation content
 - Judge Q&A prep
+
+### UI Learning Story
+
+The UI should show the following card types:
+
+**MEMORY CARD**: "Customer prefers email" → verified deal context
+
+**OUTCOME CARD**: "ROI explanation received positive response" → evidence
+
+**LEARNING CARD**: "Previous successful approach relevant to this deal" → informed recommendation
+
+The wording must be evidence-based. Avoid: "AI learned that ROI always wins." Prefer: "Previous ROI-focused discussion received a positive response in this deal."
+
+### Visual Flow
+```
+INTERACTION
+    ↓
+VERIFIED MEMORY
+    ↓
+OUTCOME
+    ↓
+LEARNING
+    ↓
+FUTURE RECOMMENDATION
+```
 
 ## Files Owned
 
@@ -111,9 +138,11 @@ pytest tests/test_ui.py -v
 
 - [ ] Streamlit app runs end-to-end
 - [ ] Hero moments visible: admission, merge, contamination, provenance
-- [ ] 60-second demo script rehearsed
+- [ ] Outcome and learning cards display correctly
+- [ ] Visual learning flow (interaction → memory → outcome → learning → recommendation)
+- [ ] 60-second demo script rehearsed with learning story
 - [ ] 90-second demo script rehearsed
-- [ ] Judge Q&A prepared
+- [ ] Judge Q&A prepared (including learning/outcome questions)
 - [ ] Presentation slides finalized
 - [ ] Screenshots/recording for assets
 

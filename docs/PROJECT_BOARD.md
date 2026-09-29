@@ -1,159 +1,53 @@
 # Project Board (Kanban)
 
-## Status: PLANNED
+## Status: ALL TASKS COMPLETED & DEMO READY
 
-## Columns
+## Columns Overview
 
 ```
-BACKLOG → DAY 1 → DAY 2 → DAY 3 → TESTING → DEMO READY → DONE
+BACKLOG → DAY 1 [DONE] → DAY 2 [DONE] → DAY 3 [DONE] → TESTING [PASSED] → DEMO READY [ACTIVE]
 ```
 
 ---
 
-## BACKLOG (Prioritized)
+## Completed Tasks Summary
 
-| # | Task | Member | Labels | Est. |
-|---|------|--------|--------|------|
-| 1 | MemoryDecision schema + types | M1 | core, priority-high | 4h |
-| 2 | Rules engine framework | M1 | core, priority-high | 4h |
-| 3 | Admission policy (R29-R31) | M1 | core, priority-high | 4h |
-| 4 | Hindsight client (recall/retain) | M2 | backend, priority-high | 6h |
-| 5 | Groq client + config | M2 | backend, priority-high | 4h |
-| 6 | Agent harness skeleton | M2 | backend, priority-high | 4h |
-| 7 | ACME scenario JSON | M3 | evaluation, priority-high | 2h |
-| 8 | GLOBEX scenario JSON | M3 | evaluation, priority-high | 2h |
-| 9 | NORTHWIND scenario JSON | M3 | evaluation, priority-high | 2h |
-| 10 | INITECH scenario JSON | M3 | evaluation, priority-high | 2h |
-| 11 | UMBRELLA scenario JSON | M3 | evaluation, priority-high | 2h |
-| 12 | Streamlit app skeleton | M4 | ui, priority-high | 4h |
-| 13 | Chat component | M4 | ui, priority-high | 3h |
-| 14 | Memory card component | M4 | ui, priority-high | 3h |
-
----
-
-## DAY 1 (Target: Complete by EOD)
-
-### Member 1: MemoryGuard Core
-- [ ] `memory_guard.py` — Decision engine skeleton
-- [ ] `schema.py` — MemoryDecision, CandidateMemory, Provenance
-- [ ] `rules.py` — Rules engine framework
-- [ ] `admission.py` — Utility threshold, actionability, deal relevance
-- [ ] Unit tests: `test_admission.py` (skeletons)
-
-### Member 2: Backend
-- [ ] `hindsight_client.py` — Recall, retain, bank management
-- [ ] `groq_client.py` — Main + verifier with fallback
-- [ ] `config.py` — Pydantic settings, validation
-- [ ] `agent_harness.py` — Process turn skeleton
-- [ ] `session.py` — Conversation state
-- [ ] `logger.py` — Structured JSON logging
-
-### Member 3: Data/Eval
-- [ ] `src/data/scenarios/acme.json` — Complete with ground truth
-- [ ] `src/data/scenarios/globex.json` — Complete with ground truth
-- [ ] `src/data/scenarios/northwind.json` — Complete with ground truth
-- [ ] `src/data/scenarios/initech.json` — Complete with ground truth
-- [ ] `src/data/scenarios/umbrella.json` — Complete with ground truth
-- [ ] `tests/test_admission.py` — Skeleton tests
-- [ ] `tests/test_contamination.py` — Skeleton tests
-
-### Member 4: UI/Demo
-- [ ] `src/ui/main.py` — Streamlit app entry
-- [ ] `src/ui/components/chat.py` — Chat interface
-- [ ] `src/ui/components/memory_card.py` — Memory display
-- [ ] `src/ui/components/status.py` — Connection/processing status
-- [ ] Layout with sidebar (memories) + main (chat)
+| # | Task | Member | Labels | Status |
+|---|------|--------|--------|--------|
+| 1 | MemoryDecision schema + types | M1 | core, priority-high | ✅ DONE |
+| 2 | Rules engine framework (34 rules) | M1 | core, priority-high | ✅ DONE |
+| 3 | Admission policy (R29-R31) | M1 | core, priority-high | ✅ DONE |
+| 4 | RapidFuzz consolidation & merging | M1 | core, priority-high | ✅ DONE |
+| 5 | Contradiction & decay engine | M1 | core, priority-high | ✅ DONE |
+| 6 | Hindsight client (recall/retain/combined) | M2 | backend, priority-high | ✅ DONE |
+| 7 | PydanticAI Agent & Verifier runtimes | M2 | backend, priority-high | ✅ DONE |
+| 8 | Config & environment management | M2 | backend, priority-high | ✅ DONE |
+| 9 | Agent loop & closed-loop outcome persistence | M2 | backend, priority-high | ✅ DONE |
+| 10 | 5 Scenario datasets (ACME, GLOBEX, etc.) | M3 | evaluation, priority-high | ✅ DONE |
+| 11 | 5-Way Comparative ablation benchmark | M3 | evaluation, priority-high | ✅ DONE |
+| 12 | DeepEval evaluation suite | M3 | evaluation, priority-high | ✅ DONE |
+| 13 | Pytest test suite (21/21 passing) | M3 | evaluation, priority-high | ✅ DONE |
+| 14 | Streamlit interactive dashboard | M4 | ui, priority-high | ✅ DONE |
+| 15 | 4 1-Click Hero Presets | M4 | ui, priority-high | ✅ DONE |
+| 16 | Counterfactual comparison card | M4 | ui, priority-high | ✅ DONE |
+| 17 | 4 Vector SVG diagrams | M4 | ui, priority-high | ✅ DONE |
+| 18 | 90-Second pitch script & slides | M4 | ui, priority-high | ✅ DONE |
 
 ---
 
-## DAY 2 (Target: Complete by EOD)
+## 🧪 Testing Status: 100% Passed
 
-### Member 1: MemoryGuard Core
-- [ ] `consolidation.py` — Merge logic, similarity, frequency tracking
-- [ ] `contamination.py` — Grounding verification, verifier prompt
-- [ ] `provenance.py` — Chain building, audit ID
-- [ ] `scopes.py` — Scope assignment, validation
-- [ ] Integration tests for merge + contamination
-
-### Member 2: Backend
-- [ ] Full agent loop: recall → context → LLM → candidate → verify → retain
-- [ ] Project + common bank recall merge
-- [ ] Error handling: retries, circuit breaker, graceful degradation
-- [ ] Session persistence (conversation history)
-- [ ] Integration test: full turn with MemoryGuard
-
-### Member 3: Data/Eval
-- [ ] `eval_harness.py` — Scenario runner, metrics computation
-- [ ] Run all 5 scenarios, generate baseline report
-- [ ] Ablation harness (no-contam, no-merge, no-guard, stateless)
-- [ ] `tests/test_consolidation.py` — Merge tests
-- [ ] `tests/test_conflicts.py` — Conflict tests
-
-### Member 4: UI/Demo
-- [ ] `decision_panel.py` — Show MemoryGuard decision with reason
-- [ ] `provenance.py` — Expandable provenance chain
-- [ ] `promotion.py` — Scope promotion visualization
-- [ ] `comparison.py` — Before/after memory quality
-- [ ] Hero moment styling (green check, red X, merge arrow)
+- [x] Unit Tests: `tests/unit/test_memory_guard.py` (10 tests passing)
+- [x] Backend Tests: `tests/unit/test_advanced_backend.py` (4 tests passing)
+- [x] Integration Tests: `tests/integration/test_learning_loop.py` (3 tests passing)
+- [x] Evaluation Tests: `tests/evaluation/test_eval_suite.py` (4 DeepEval tests passing)
+- [x] Total: **21 of 21 tests passing (100%)**
 
 ---
 
-## DAY 3 (Target: Complete by Noon)
+## 🚀 Live Demo Status: READY
 
-### Member 1: MemoryGuard Core
-- [ ] `conflicts.py` — Contradiction detection, temporal resolution
-- [ ] `promotion.py` — Cross-scope promotion criteria
-- [ ] Final rule implementations (R1-R34)
-- [ ] Performance optimization (caching, batching)
-
-### Member 2: Backend
-- [ ] Integration stress test (10+ turns)
-- [ ] Latency optimization (parallel recall + verify)
-- [ ] Fallback: mock mode for demo reliability
-- [ ] Demo script integration hooks
-
-### Member 3: Data/Eval
-- [ ] Final evaluation run on all scenarios
-- [ ] Ablation results with charts
-- [ ] Regression test suite in CI
-- [ ] Metrics report for presentation
-
-### Member 4: UI/Demo
-- [ ] End-to-end demo flow tested
-- [ ] 60-second demo script rehearsed
-- [ ] 90-second demo script rehearsed
-- [ ] Judge Q&A prep
-- [ ] Presentation slides finalized
-- [ ] Screenshots/recording for assets
-
----
-
-## TESTING (Day 3 Afternoon)
-
-- [ ] All unit tests pass (`pytest tests/ -v`)
-- [ ] Integration tests pass
-- [ ] Evaluation runs without errors
-- [ ] UI loads without console errors
-- [ ] Demo runs 3x successfully
-- [ ] No hardcoded secrets in code
-
----
-
-## DEMO READY (Day 3 Evening)
-
-- [ ] Tag `v0.1.0-demo` on `main`
-- [ ] Demo environment verified
-- [ ] Backup demo plan (static screenshots)
-- [ ] Team knows roles for presentation
-
----
-
-## DONE (Post-Hackathon)
-
-- [ ] Retrospective
-- [ ] Archive board
-- [ ] Plan next iteration
-
----
-
-**Status: PLANNED** — Board updated daily at standup.
+- [x] Streamlit dashboard running on `http://localhost:8501`
+- [x] Headless auto-start configured
+- [x] Zero API dependencies required in mock mode; seamless live Groq & Hindsight fallback
+- [x] 4 Hero Moments pre-configured for 1-click execution

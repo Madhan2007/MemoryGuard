@@ -1,10 +1,10 @@
 # Member 1: MemoryGuard Core
 
-## Status: PLANNED
+## Status: IMPLEMENTED & VERIFIED
 
 ## Purpose
 
-Build the decision engine that determines what the agent should remember. This is the core governance layer.
+Build the decision engine that determines what the agent should remember. This is the core governance layer that protects the learning loop — ensuring only evidence-grounded memories influence future deal assistance.
 
 ## Owner
 
@@ -22,6 +22,8 @@ Build the decision engine that determines what the agent should remember. This i
 - Conflict handling (`conflicts.py`)
 - Scope management (`scopes.py`)
 - Promotion policy (`promotion.py`)
+- Outcome evidence validation (prevent unsupported causal/learning claims)
+- Trust signals and confidence scoring
 - Core unit tests
 
 ## Files Owned
@@ -90,9 +92,19 @@ mypy src/memory/
 - [ ] All 34 rules implemented with passing tests
 - [ ] `verify()` returns correct decisions for all 5 scenarios
 - [ ] Provenance chain complete for every decision
+- [ ] Outcome-based memories do not overclaim causality
 - [ ] Decision contract stable (no breaking changes after Day 1)
 - [ ] Type hints on all public functions
 - [ ] Docstrings on all public classes/functions
+
+### Day 3 Addition
+
+Validate that outcome-based memories do not overclaim causality:
+
+| Source | Candidate | Expected |
+|--------|-----------|----------|
+| "Customer asked about ROI." | "ROI approach caused the customer to approve." | REJECT or NEEDS_REVIEW (insufficient evidence) |
+| "Customer responded positively after ROI explanation." | "ROI explanation received a positive response." | RETAIN (observable, supported) |
 
 ## What Not To Modify
 

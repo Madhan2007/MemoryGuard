@@ -1,0 +1,68 @@
+{
+  "scenario_id": "umbrella",
+  "customer": "Umbrella Co",
+  "deal_id": "deal-umbrella-001",
+  "rep_id": "rep-001",
+  "turns": [
+    {
+      "turn_id": 1,
+      "speaker": "customer",
+      "text": "We need SSO for our team. SAML 2.0 is preferred.",
+      "expected_memories": [
+        {"text": "Customer requires SSO with SAML 2.0", "decision": "RETAIN", "scope": "project", "memory_type": "technical"}
+      ]
+    },
+    {
+      "turn_id": 2,
+      "speaker": "rep",
+      "text": "Got it. SAML 2.0 SSO is a requirement.",
+      "expected_memories": []
+    },
+    {
+      "turn_id": 3,
+      "speaker": "customer",
+      "text": "Our CTO is the technical champion. She'll drive the evaluation.",
+      "expected_memories": [
+        {"text": "CTO is technical champion", "decision": "RETAIN", "scope": "project", "memory_type": "stakeholder"}
+      ]
+    },
+    {
+      "turn_id": 4,
+      "speaker": "customer",
+      "text": "Actually, our CTO left. The new VP Engineering wants OIDC instead of SAML.",
+      "expected_memories": [
+        {"text": "VP Engineering is new technical stakeholder", "decision": "RETAIN", "scope": "project", "memory_type": "stakeholder"},
+        {"text": "Customer requires OIDC for SSO", "decision": "UPDATE", "scope": "project", "memory_type": "technical", "conflicts_with": "Customer requires SSO with SAML 2.0"}
+      ]
+    },
+    {
+      "turn_id": 5,
+      "speaker": "customer",
+      "text": "We need approval from Legal and Security. Procurement handles the contract.",
+      "expected_memories": [
+        {"text": "Legal and Security approval required", "decision": "RETAIN", "scope": "project", "memory_type": "requirement"},
+        {"text": "Procurement handles contract", "decision": "RETAIN", "scope": "project", "memory_type": "stakeholder"}
+      ]
+    }
+  ],
+  "ground_truth": {
+    "final_memories": [
+      {"text": "Customer requires OIDC for SSO", "scope": "project", "memory_type": "technical"},
+      {"text": "CTO is technical champion", "scope": "project", "memory_type": "stakeholder"},
+      {"text": "VP Engineering is new technical stakeholder", "scope": "project", "memory_type": "stakeholder"},
+      {"text": "Legal and Security approval required", "scope": "project", "memory_type": "requirement"},
+      {"text": "Procurement handles contract", "scope": "project", "memory_type": "stakeholder"}
+    ],
+    "conflicts": [
+      {
+        "original": "Customer requires SSO with SAML 2.0",
+        "updated": "Customer requires OIDC for SSO",
+        "resolution": "UPDATE - explicit change"
+      }
+    ],
+    "lifecycle": {
+      "stale_memory": "Customer requires SSO with SAML 2.0",
+      "superseded_by": "Customer requires OIDC for SSO"
+    }
+  }
+}

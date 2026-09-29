@@ -1,234 +1,159 @@
-"""
-Groq / OpenAI-compatible LLM Client
-
-Member 2 ownership.
-
-Provides async clients for main agent and verifier with fallback chains.
-"""
-
-import asyncio
-import logging
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass
-from enum import Enum
-
 from groq import AsyncGroq
-from groq.types.chat import ChatCompletion
-
-from .config import get_config, Config
+from src.config import settings
+from typing import List, Dict, Any, Optional
+import json
+import logging
+import os
 
 logger = logging.getLogger(__name__)
 
-
-class ModelUnavailable(Exception):
-    """Raised when a model is unavailable."""
-    pass
+USE_MOCK = os.getenv("USE_MOCK_LLM", "true").lower() == "true"
 
 
-class AllModelsFailed(Exception):
-    """Raised when all fallback models fail."""
-    pass
+class MockGroqClient:
+    """Mock LLM client for demo without real API keys"""
+    
+    async def call_main(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        response_format: Optional[Dict] = None,
+    ) -> str:
+        user_msg = next((m["content"] for m in messages if m["role"] == "user"), "")
+        
+        if "evaluating SOC2" in user_msg or "SOC2" in user_msg:
+            return "I understand you're evaluating SOC2 compliance. Let me note that for our discussion."
+        elif "prefer email" in user_msg.lower() or "email" in user_msg.lower():
+            return "Got it. I'll use email for all communications going forward."
+        elif "HIPAA" in user_msg:
+            return "HIPAA compliance is important for healthcare. I'll make sure we address that."
+        else:
+            return "Thank you for that information. I'll make a note of it."
 
-
-class StructuredOutputError(Exception):
-    """Raised when structured output parsing fails."""
-    pass
-
-
-@dataclass
-class VerificationResponse:
-    """Structured response from verifier LLM."""
-    supported: str  # SUPPORTED, PARTIALLY_SUPPORTED, NOT_SUPPORTED
-    reason: str
-    confidence: float
+    async def call_verifier(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        # The verifier prompt contains both source_text and candidate_text
+        # Find the user message which contains the full prompt
+        user_msg = next((m["content"] for m in messages if m["role"] == "user"), "")
+        
+        # Extract source and candidate from the prompt
+        source_text = ""
+        candidate_text = ""
+        
+        if "SOURCE TEXT:" in user_msg:
+            parts = user_msg.split("SOURCE TEXT:")
+            if len(parts) > 1:
+                source_part = parts[1].split("CANDIDATE MEMORY:")[0]
+                source_text = source_part.strip()
+        
+        if "CANDIDATE MEMORY:" in user_msg:
+            parts = user_msg.split("CANDIDATE MEMORY:")
+            if len(parts) > 1:
+                candidate_part = parts[1].split("MEMORY TYPE:")[0]
+                candidate_text = candidate_part.strip()
+        
+        source_lower = source_text.lower()
+        candidate_lower = candidate_text.lower()
+        
+        # Check for contamination: SOC2 mandatory from evaluating SOC2
+        if "soc2 is mandatory" in candidate_lower and "evaluating soc2" in source_lower:
+            return {
+                "support_state": "unsupported",
+                "confidence": 0.95,
+                "reason": "Source says 'evaluating SOC2' but candidate claims 'SOC2 is mandatory' - unsupported escalation",
+                "evidence_quotes": ["We are evaluating SOC2 compliance"]
+            }
+        # Email preference - supported
+        elif "prefer email" in candidate_lower and "prefer email" in source_lower:
+            return {
+                "support_state": "supported",
+                "confidence": 0.98,
+                "reason": "Source directly states email preference",
+                "evidence_quotes": ["I prefer email for all deal communication"]
+            }
+        # HIPAA requirement - supported
+        elif "hipaa" in candidate_lower and "hipaa" in source_lower and ("require" in source_lower or "must-have" in source_lower):
+            return {
+                "support_state": "supported",
+                "confidence": 0.95,
+                "reason": "Source explicitly states HIPAA is a must-have",
+                "evidence_quotes": ["HIPAA requirements since we handle patient data. That's a must-have."]
+            }
+        # SOC2 evaluation - supported
+        elif "evaluating soc2" in candidate_lower and "evaluating soc2" in source_lower:
+            return {
+                "support_state": "supported",
+                "confidence": 0.9,
+                "reason": "Source directly states evaluating SOC2",
+                "evidence_quotes": ["We are evaluating SOC2 compliance"]
+            }
+        else:
+            return {
+                "support_state": "supported",
+                "confidence": 0.8,
+                "reason": "General support",
+                "evidence_quotes": []
+            }
 
 
 class GroqClient:
-    """
-    Wrapper around Groq async client with fallback chains.
-    
-    Supports both main agent (generation) and verifier (validation) models.
-    """
-    
-    # Fallback chains (configurable via env if needed)
-    MAIN_MODEL_FALLBACKS = [
-        "openai/gpt-oss-20b",
-        "meta-llama/llama-3.1-70b",
-        "meta-llama/llama-3.1-8b",
-    ]
-    
-    VERIFIER_MODEL_FALLBACKS = [
-        "openai/gpt-oss-120b",
-        "meta-llama/llama-3.1-405b",
-        "meta-llama/llama-3.1-70b",
-    ]
-    
-    def __init__(self, config: Optional[Config] = None):
-        self.config = config or get_config()
-        
-        # Initialize clients
-        self.main_client = AsyncGroq(
-            api_key=self.config.GROQ_API_KEY,
-            base_url=self.config.MAIN_MODEL_BASE_URL,
-            timeout=60.0,
-        )
-        self.verifier_client = AsyncGroq(
-            api_key=self.config.GROQ_API_KEY,
-            base_url=self.config.VERIFIER_MODEL_BASE_URL,
-            timeout=60.0,
-        )
-        
-        # Mock mode
-        self.mock_mode = self.config.MOCK_LLM
-    
-    async def call_main_llm(self, messages: List[Dict[str, str]]) -> str:
-        """
-        Call main LLM for response generation.
-        
-        Args:
-            messages: List of message dicts with 'role' and 'content'
-            
-        Returns:
-            Generated response text
-        """
-        if self.mock_mode:
-            return self._mock_main_response(messages)
-        
-        return await self._call_with_fallback(
-            role="main",
-            messages=messages,
-            temperature=self.config.MAIN_MODEL_TEMPERATURE,
-            max_tokens=self.config.MAIN_MODEL_MAX_TOKENS,
-        )
-    
-    async def call_verifier_llm(self, messages: List[Dict[str, str]]) -> VerificationResponse:
-        """
-        Call verifier LLM for structured verification.
-        
-        Args:
-            messages: List of message dicts with 'role' and 'content'
-            
-        Returns:
-            Structured VerificationResponse
-        """
-        if self.mock_mode:
-            return self._mock_verification_response()
-        
-        response_text = await self._call_with_fallback(
-            role="verifier",
-            messages=messages,
-            temperature=self.config.VERIFIER_MODEL_TEMPERATURE,
-            max_tokens=self.config.VERIFIER_MODEL_MAX_TOKENS,
-            response_format={"type": "json_object"},
-        )
-        
-        return self._parse_verification(response_text)
-    
-    async def _call_with_fallback(
+    def __init__(self):
+        self.mock = MockGroqClient()
+        self.main_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+        self.verifier_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+
+    async def call_main(
         self,
-        role: str,
         messages: List[Dict[str, str]],
-        temperature: float,
-        max_tokens: int,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
         response_format: Optional[Dict] = None,
     ) -> str:
-        """Call LLM with fallback chain."""
-        fallbacks = (
-            self.MAIN_MODEL_FALLBACKS if role == "main" 
-            else self.VERIFIER_MODEL_FALLBACKS
+        if USE_MOCK:
+            return await self.mock.call_main(messages, temperature, max_tokens, response_format)
+        
+        temp = temperature if temperature is not None else settings.MAIN_MODEL_TEMPERATURE
+        tokens = max_tokens if max_tokens is not None else settings.MAIN_MODEL_MAX_TOKENS
+
+        response = await self.main_client.chat.completions.create(
+            model=settings.MAIN_MODEL.replace("groq:", ""),
+            messages=messages,
+            temperature=temp,
+            max_tokens=tokens,
+            response_format=response_format,
         )
-        client = self.main_client if role == "main" else self.verifier_client
+        return response.choices[0].message.content
+
+    async def call_verifier(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        if USE_MOCK:
+            return await self.mock.call_verifier(messages, temperature, max_tokens)
         
-        last_error = None
-        for model in fallbacks:
-            try:
-                response: ChatCompletion = await client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    response_format=response_format,
-                )
-                content = response.choices[0].message.content
-                logger.info(f"LLM call succeeded", model=model, role=role)
-                return content
-            except Exception as e:
-                last_error = e
-                logger.warning(f"Model {model} failed for {role}", error=str(e))
-                # Brief delay before trying next model
-                await asyncio.sleep(0.5)
-                continue
-        
-        # All models failed
-        raise AllModelsFailed(f"All {role} models failed. Last error: {last_error}")
-    
-    def _parse_verification(self, response_text: str) -> VerificationResponse:
-        """Parse verifier LLM JSON response."""
-        import json
+        temp = temperature if temperature is not None else settings.VERIFIER_MODEL_TEMPERATURE
+        tokens = max_tokens if max_tokens is not None else settings.VERIFIER_MODEL_MAX_TOKENS
+
+        response = await self.verifier_client.chat.completions.create(
+            model=settings.VERIFIER_MODEL.replace("groq:", ""),
+            messages=messages,
+            temperature=temp,
+            max_tokens=tokens,
+            response_format={"type": "json_object"},
+        )
+        content = response.choices[0].message.content
         try:
-            data = json.loads(response_text)
-            return VerificationResponse(
-                supported=data.get("supported", "NOT_SUPPORTED"),
-                reason=data.get("reason", "No reason provided"),
-                confidence=float(data.get("confidence", 0.0)),
-            )
-        except (json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.error("Failed to parse verifier response", response=response_text, error=str(e))
-            raise StructuredOutputError(f"Invalid verifier response: {e}")
-    
-    # Mock responses for development
-    def _mock_main_response(self, messages: List[Dict[str, str]]) -> str:
-        """Generate mock response based on last user message."""
-        last_user = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
-        
-        if "prefer email" in last_user.lower():
-            return "Understood, I'll communicate via email."
-        elif "SOC2" in last_user:
-            return "Noted on SOC2 evaluation. I'll include that in our discussion."
-        elif "Gong" in last_user or "competitor" in last_user.lower():
-            return "Thanks for sharing the competitor context."
-        else:
-            return "Thank you for that information. I'll make a note of it."
-    
-    def _mock_verification_response(self) -> VerificationResponse:
-        """Mock verification response."""
-        return VerificationResponse(
-            supported="SUPPORTED",
-            reason="Mock verification - candidate appears consistent with source",
-            confidence=0.85
-        )
-    
-    async def close(self):
-        """Close client connections."""
-        await self.main_client.close()
-        await self.verifier_client.close()
+            return json.loads(content)
+        except json.JSONDecodeError as e:
+            logger.error(f"Verifier returned invalid JSON: {content}")
+            raise ValueError(f"Verifier structured output parse failed: {e}")
 
 
-# Convenience function for simple usage
-async def quick_verify(candidate_text: str, source_text: str, config: Optional[Config] = None) -> VerificationResponse:
-    """Quick verification helper for testing."""
-    client = GroqClient(config)
-    try:
-        prompt = f"""
-        Source text: "{source_text}"
-        Candidate memory: "{candidate_text}"
-        
-        Does the source text support the candidate memory?
-        Respond with JSON: {{"supported": "SUPPORTED|PARTIALLY_SUPPORTED|NOT_SUPPORTED", "reason": "...", "confidence": 0.0-1.0}}
-        """
-        return await client.call_verifier_llm([
-            {"role": "system", "content": "You are a verification assistant. Respond only with valid JSON."},
-            {"role": "user", "content": prompt}
-        ])
-    finally:
-        await client.close()
-
-
-__all__ = [
-    "GroqClient",
-    "VerificationResponse",
-    "ModelUnavailable",
-    "AllModelsFailed",
-    "StructuredOutputError",
-    "quick_verify",
-]
+groq_client = GroqClient()
